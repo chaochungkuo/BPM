@@ -1,0 +1,107 @@
+
+########################################################
+# Default project.yaml
+########################################################
+project_base:
+  name: ""
+  date: ""
+  institute: ""
+  application: ""
+  authors: []
+  project_dir: ""
+  created_at: ""
+  retention_until: ""
+
+
+########################################################
+# Templates
+########################################################
+templates_dir:
+  # Default template directory in BPM installation
+  default: "bpm.templates"
+  # User-defined template directories (optional)
+  user: []
+  # Whether to use only user-defined templates (default: false)
+  user_only: false
+
+# Template status configuration
+template_status:
+  # Available statuses
+  statuses:
+    not_started: "not_started"
+    running: "running"
+    completed: "completed"
+    failed: "failed"
+  
+  # Default status for new templates
+  default: "not_started"
+
+template_files_rendered:
+  formats: [".sh", ".yaml", ".json", ".txt", ".csv", ".tsv", ".Rmd", ".md", ".ipynb"]
+########################################################
+# Hook functions
+########################################################
+hook_functions:
+  # Default template directory in BPM installation
+  default: "bpm/hook_functions"
+  # User-defined template directories (optional)
+  user: []
+  # Whether to use only user-defined templates (default: false)
+  user_only: false
+
+########################################################
+# Workflow
+########################################################
+workflows:
+  # Default template directory in BPM installation
+  default: "bpm/workflows"
+  # User-defined template directories (optional)
+  user: []
+  # Whether to use only user-defined templates (default: false)
+  user_only: false
+
+########################################################
+# Host paths
+########################################################
+host_paths:
+  nextgen: "/mnt/nextgen/"
+  nextgen2: "/mnt/nextgen2/"
+  nextgen3: "/mnt/nextgen3/"
+  archive: "/mnt/nextgen2/archive/"
+
+########################################################
+# Logging
+########################################################
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file: "bpm.log"
+
+########################################################
+# Patterns to ignore in file tree display
+########################################################
+tree_ignore:
+  - results/
+  - work/
+  - .nextflow/
+  - .nextflow.log
+  - scATACseq_output
+  - renv
+  - .pixi
+
+########################################################
+# Authors
+########################################################
+authors:
+  ckuo:
+    name: "Chao-Chung Kuo"
+    affiliation: "Genomics Facility"
+    email: "ckuo@ukaachen.de"
+  lgan:
+    name: "Lin Gan"
+    affiliation: "Genomics Facility"
+    email: "lgan@ukaachen.de"
+  mmabrouk:
+    name: "Mohamed Hamdy Elsafi Mabrouk"
+    affiliation: "Genomics Facility"
+    email: "mmabrouk@ukaachen.de" 

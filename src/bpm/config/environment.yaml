@@ -1,0 +1,24 @@
+# BPM Environment Configuration
+# This file contains global settings and paths for the Genomic Project Manager
+
+# System Resources
+system:
+  # Number of CPU cores to use by default in BPM scripts
+  n_cores: 40
+
+# Tool Paths
+# These should be in your system PATH. If not, provide full paths.
+tools:
+  bcl-convert: bcl-convert
+  bcl2fastq: bcl2fastq
+  cellranger: cellranger
+  cellranger-atac: cellranger-atac
+  nextflow: nextflow
+  splitpipe: split-pipe
+
+# Reference Data Paths
+# Paths to reference genomes and annotation files
+reference_data:
+  cellranger:
+    base: /data/shared/10xGenomics/
+    arc_mm10_2020_A: /data/shared/10xGenomics/refdata-cellranger-arc-mm10-2020-A-2.0.0

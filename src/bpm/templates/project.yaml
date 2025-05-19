@@ -1,0 +1,47 @@
+# BPM Project Configuration Template
+# This file defines the structure and required fields for a BPM project
+
+# Project metadata
+project:
+  date: null  # Project start date
+  name: null  # Project name
+  institute: null  # Institute name
+  application: null  # Type of application (e.g., RNAseq, ChIPseq)
+  authors: []  # List of authors
+  path: null  # Project root path
+  string: null  # Project identifier string
+
+# Raw data configuration
+raw_data:
+  bcl_path: null  # Path to BCL files
+
+# Demultiplexing configuration
+demultiplexing:
+  path: null  # Path for demultiplexing output
+  fastq_path: null  # Path for FASTQ files
+  fastq_multiqc_path: null  # Path for MultiQC reports
+  method: null  # Demultiplexing method (e.g., bcl2fastq, cellranger)
+
+# Processing configuration
+processing:
+  path: null  # Path for processing output
+  method: null  # Processing method (e.g., nfcore/rnaseq)
+  qc_path: null  # Path for QC reports
+  organism: null  # Organism name
+  genome_assembly: null  # Genome assembly version
+
+# Analysis configuration
+analysis:
+  path: null  # Path for analysis output
+  types: []  # List of analysis types
+
+# Export configuration
+export:
+  url: null  # Export URL
+  report_url: null  # Report URL
+  user: null  # Export user credentials
+  password: null  # Export password
+
+# Project history
+history:
+  logs: []  # List of project logs

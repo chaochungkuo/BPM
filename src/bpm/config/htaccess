@@ -1,0 +1,6 @@
+RewriteEngine on
+AuthType Basic
+AuthName "restricted area"
+AuthUserFile /var/www/html/data/PROJECT_PROJECT_NAME/.htpasswd
+require valid-user
+Options +FollowSymLinks

@@ -1,0 +1,48 @@
+project:
+  name: 250704_NameA_NameB_MedI_3mRNAseq
+  date: 250704
+  institute: MedI
+  application: 3mRNAseq
+  authors:
+    - Chao-Chung Kuo <ckuo@ukaachen.de>
+  project_dir: nextgen:/data/projects/250704_NameA_NameB_MedI_3mRNAseq
+  created_at: 2025-07-04T12:00:00
+
+demultiplexing:
+  bclconvert:
+    raw_data_path: rawdata:/novaseq/250704_A01742_0410_AHC3FFDRX5
+    samplesheet: nextgen:/config/samplesheet_250704.csv
+    demultiplexing_dir: nextgen:/data/fastq/250704
+    fastq_dir: nextgen:/data/fastq/250704/outputs
+    fastq_multiqc: nextgen:/data/fastq/250704/multiqc/multiqc_report.html
+    status: completed
+    updated_at: 2025-07-04T14:00:00
+
+processing:
+  nfcore_3mRNAseq:
+    fastq_input: nextgen:/data/fastq/250704/outputs
+    processing_dir: nextgen:/data/projects/250704_NameA_NameB_MedI_3mRNAseq/nfcore
+    results_dir: nextgen:/data/projects/250704_NameA_NameB_MedI_3mRNAseq/nfcore/results
+    multiqc_report: nextgen:/data/projects/250704_NameA_NameB_MedI_3mRNAseq/nfcore/results/multiqc.html
+    status: running
+    updated_at: 2025-07-05T09:00:00
+
+analysis:
+  DGEA_RNAseq:
+    script: local:/mnt/nextgen2/data/projects/250704_NameA_NameB_MedI_3mRNAseq/analysis/DGEA_template.Rmd
+    output_html: local:/mnt/nextgen2/data/projects/250704_NameA_NameB_MedI_3mRNAseq/analysis/DGEA_template.html
+    status: pending
+
+export:
+  export_dir: nextgen:/public_html/250704_NameA_NameB_MedI_3mRNAseq
+  export_url: https://genomics.rwth-aachen.de/data/250704_NameA_NameB_MedI_3mRNAseq
+  report_url: https://genomics.rwth-aachen.de/data/250704_NameA_NameB_MedI_3mRNAseq/analysis/DGEA_template.html
+  export_user: pradhan
+  export_password: <encrypted>
+  status: not_started
+
+history:
+  - "250704 12:05 bpm init --name 250704_NameA_NameB_MedI_3mRNAseq"
+  - "250704 12:06 bpm generate bclconvert --raw rawdata:/novaseq/250704_A01742_0410_AHC3FFDRX5 --outdir nextgen:/data/fastq/250704"
+  - "250704 14:10 bpm update-project bclconvert project.yaml"
+  - "250705 09:00 bpm generate nfcore_3mRNAseq --name 250704_NameA_NameB_MedI_3mRNAseq"

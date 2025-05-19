@@ -1,0 +1,96 @@
+# BPM (Genomic Project Manager) Configuration
+# This file defines global settings for BPM operations
+
+# Supported applications
+applications:
+  - BCL
+  - fastq
+  - FASTQ
+  - RNAseq
+  - totalRNAseq
+  - mRNAseq
+  - 3mRNAseq
+  - miRNAseq
+  - ChIPseq
+  - ATACseq
+  - CLIPseq
+  - scRNAseq
+  - scVDJseq
+  - scATACseq
+  - scRNAcellplex
+  - ampliseq
+  - BWGS
+  - WES
+  - 16S
+  - MAG
+  - methylseq
+  - DNAmArray
+  - advanced
+
+# Patterns to ignore in file tree display
+tree_ignore:
+  - results/
+  - work/
+  - .nextflow/
+  - .nextflow.log
+  - scATACseq_output
+  - renv
+  - .pixi
+
+# Export settings
+export:
+  # Web service settings
+  web_url: https://genomics.rwth-aachen.de/data/
+  # Cloud storage settings
+  cloud_url: https://genomics.rwth-aachen.de/cloud
+  # Patterns to ignore in tar exports
+  tar_ignore:
+    - renv
+    - work
+
+# Cleanup settings
+clean:
+  # File patterns to clean
+  patterns:
+    # Fastq files
+    - "*.fastq.gz"
+    - "*.fastq"
+    - "*.fq.gz"
+    - "*.fq"
+    # Directories
+    - work
+    - results
+    - mkfastq
+    - fastqc
+    - Reports
+    - Stats
+    - renv
+    # R-related files
+    - .Rhistory
+    - .Rprofile
+    - "*.Rproj"
+    # Other
+    - .pixi
+    - "nfcore_*/results*"
+
+# Report customization
+report:
+  institute:
+    name: "Genomic Facility in IZKF, RWTH Aachen Uniklinik"
+    logo: "/data/projects/RWTH_IZKF_GF_Logo_rgb.png"
+  top_content: ""  # Additional content for report header
+
+# Author information
+authors:
+  ckuo:
+    name: "Chao-Chung Kuo"
+    affiliation: "Genomics Facility"
+    email: "ckuo@ukaachen.de"
+  lgan:
+    name: "Lin Gan"
+    affiliation: "Genomics Facility"
+    email: "lgan@ukaachen.de"
+  mmabrouk:
+    name: "Mohamed Hamdy Elsafi Mabrouk"
+    affiliation: "Genomics Facility"
+    email: "mmabrouk@ukaachen.de" 

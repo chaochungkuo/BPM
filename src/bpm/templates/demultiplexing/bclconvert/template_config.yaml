@@ -1,0 +1,42 @@
+section: demultiplexing     # Where this belongs in project.yaml
+name: bclconvert            # Template identifier (same as folder name)
+description: "Demultiplexing with bcl-convert"
+
+inputs:                     # Required inputs from project.yaml or command line
+  bcl_path:
+    type: path
+    required: true
+    description: Path to the raw BCL data
+
+  samplesheet:
+    type: path
+    required: false
+    default: samplesheet.csv
+    description: Optional path to a custom samplesheet (if not auto-generated)
+
+  output_dir:
+    type: path
+    required: false
+    description: Where to render the output
+    resolve_with: get_raw_basename_as_output
+
+required_commands:          # Required commands for this template
+  - bcl-convert
+  - fastqc
+  - fastq_screen
+  - multiqc
+# Please check bpm.config.environment.yaml for the paths to the tools
+
+outputs:                    # Outputs into project.yaml
+  demultiplexing_dir:
+    type: path
+    description: Where demultiplexing is done
+    resolve_with: get_cwd
+  fastq_dir:
+    type: path
+    description: Where FASTQ files are
+    resolve_with: get_FASTQ_folder
+  fastq_multiqc:
+    type: path
+    description: Where MultiQC report is
+    resolve_with: get_multiqc_report
