@@ -1,24 +1,51 @@
 section: demultiplexing     # Where this belongs in project.yaml
 name: bclconvert            # Template identifier (same as folder name)
-description: "Demultiplexing with bcl-convert"
+description: |
+  Demultiplexing and quality control pipeline using bcl-convert.
+  
+  This template performs the following steps:
+  1. Demultiplexing of Illumina BCL data using bcl-convert
+  2. Quality control of FASTQ files using FastQC
+  3. Contamination screening using FastQ Screen
+  4. Generation of a comprehensive MultiQC report
+  
+  The pipeline expects Illumina BCL data and optionally a custom samplesheet.
+  Output includes demultiplexed FASTQ files and quality control reports.
 
-inputs:                     # Required inputs from project.yaml or command line
+# Required inputs from project.yaml or command line or environment variables
+inputs:
   bcl_path:
     type: path
     required: true
-    description: Path to the raw BCL data
+    description: |
+      Path to the raw BCL data directory.
+      This should be the directory containing the Data directory from an Illumina run.
+      Example: /path/to/run/Data/Intensities/BaseCalls
 
   samplesheet:
     type: path
     required: false
     default: samplesheet.csv
-    description: Optional path to a custom samplesheet (if not auto-generated)
+    description: |
+      Optional path to a custom samplesheet (if not auto-generated).
+      The samplesheet should be in Illumina Experiment Manager format.
+      If not provided, a basic samplesheet will be generated.
 
   output_dir:
     type: path
     required: false
-    description: Where to render the output
+    description: |
+      Where to render the output.
+      If not specified, will use the BCL directory name in the current directory.
     resolve_with: get_raw_basename_as_output
+  
+  run_fastq_screen:
+    type: boolean
+    required: false
+    default: true
+    description: |
+      Whether to run FastQ Screen for contamination screening.
+      If false, FastQ Screen will be skipped.
 
 required_commands:          # Required commands for this template
   - bcl-convert
@@ -30,13 +57,21 @@ required_commands:          # Required commands for this template
 outputs:                    # Outputs into project.yaml
   demultiplexing_dir:
     type: path
-    description: Where demultiplexing is done
+    description: |
+      Directory where demultiplexing is performed.
+      Contains the main output directory structure.
     resolve_with: get_cwd
+
   fastq_dir:
     type: path
-    description: Where FASTQ files are
+    description: |
+      Directory containing the demultiplexed FASTQ files.
+      Organized by sample and read number (R1, R2).
     resolve_with: get_FASTQ_folder
+
   fastq_multiqc:
     type: path
-    description: Where MultiQC report is
+    description: |
+      Path to the MultiQC report HTML file.
+      Contains aggregated quality metrics from FastQC and FastQ Screen.
     resolve_with: get_multiqc_report

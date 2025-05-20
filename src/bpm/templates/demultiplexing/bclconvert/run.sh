@@ -1,5 +1,5 @@
 #!/bin/bash
-# BPM Template: {{ template_name }}
+# BPM Template: demultiplexing/bclconvert
 
 set -euo pipefail
 
@@ -14,7 +14,7 @@ echo "🧠 Total cores: $TOTAL_CORES | Idle: ${IDLE_PCT}% | Threads: $N_THREADS"
 
 # Run bcl-convert
 echo "🚀 Running bcl-convert..."
-bcl-convert \
+{{ tool_paths.bclconvert }} \
   --bcl-input-directory "{{ bcl_path }}" \
   --output-directory "{{ output_dir }}" \
   --sample-sheet "{{ samplesheet }}" \
@@ -27,13 +27,13 @@ bcl-convert \
 # Run FASTQC
 echo "🔬 Running FASTQC..."
 mkdir -p "{{ output_dir }}/fastqc"
-find "{{ output_dir }}" -maxdepth 2 -name "*.fastq.gz" | parallel -j "$IDLE_CPUS" "fastqc {} -o {{ output_dir }}/fastqc"
+find "{{ output_dir }}" -maxdepth 2 -name "*.fastq.gz" | parallel -j "$IDLE_CPUS" "{{ tool_paths.fastqc }} {} -o {{ output_dir }}/fastqc"
 
 # Conditionally run fastq_screen
 {% if run_fastq_screen %}
 echo "🔎 Running fastq_screen..."
 mkdir -p "{{ output_dir }}/fastq_screen"
-find "{{ output_dir }}" -maxdepth 2 -name "*.fastq.gz" | parallel -j "$IDLE_CPUS" "fastq_screen --outdir {{ output_dir }}/fastq_screen {}"
+find "{{ output_dir }}" -maxdepth 2 -name "*.fastq.gz" | parallel -j "$IDLE_CPUS" "{{ tool_paths.fastq_screen }} --outdir {{ output_dir }}/fastq_screen {}"
 {% else %}
 echo "⏭️ Skipping fastq_screen..."
 {% endif %}
@@ -41,7 +41,7 @@ echo "⏭️ Skipping fastq_screen..."
 # Run MultiQC
 echo "📊 Running MultiQC..."
 mkdir -p "{{ output_dir }}/multiqc"
-multiqc -f "{{ output_dir }}" -o "{{ output_dir }}/multiqc"
+{{ tool_paths.multiqc }} -f "{{ output_dir }}" -o "{{ output_dir }}/multiqc"
 
 # Cleanup
 echo "🧹 Cleaning up..."

@@ -9,7 +9,7 @@ import os
 from typing import Any, Dict, Optional
 from pathlib import Path
 from bpm.core.project import Project
-from bpm.core.config import get_bpm_config, flatten_dict
+from bpm.core.config import get_bpm_config
 
 
 class ContextError(Exception):
@@ -66,22 +66,54 @@ class Context:
             ContextError: If parameter is not found
         """
         # First check CLI parameters
-        if key in self.cli_params:
-            return self.cli_params[key]
+        try:
+            return self._get_nested_value(self.cli_params, key)
+        except KeyError:
+            pass
             
         # Then check project parameters
         if self.project:
             try:
-                return self.project.get_value(key)
+                return self._get_nested_value(self.project.data, key)
             except KeyError:
                 pass
                 
         # Finally check environment variables
-        if self.environment and key in self.environment:
-            return self.environment[key]
+        if self.environment:
+            try:
+                return self._get_nested_value(self.environment, key)
+            except KeyError:
+                pass
                 
         raise ContextError(f"Parameter not found: {key}")
+
+    def _get_nested_value(self, d: Dict[str, Any], key: str) -> Any:
+        """Get value from nested dictionary using dot notation.
         
+        Args:
+            d: Dictionary to search in
+            key: Key using dot notation (e.g., 'tools.bclconvert')
+            
+        Returns:
+            Value from nested dictionary
+            
+        Raises:
+            KeyError: If key is not found
+        """
+        # Handle direct key access first
+        if key in d:
+            return d[key]
+            
+        # Then try nested access
+        keys = key.split('.')
+        value = d
+        for k in keys:
+            if isinstance(value, dict) and k in value:
+                value = value[k]
+            else:
+                raise KeyError(f"Key not found: {key}")
+        return value
+
     def get(self, key: str, default: Any = None) -> Any:
         """Get parameter value with default fallback.
         
@@ -115,13 +147,12 @@ class Context:
         
         if self.project:
             # Get all project parameters
-            project_params = flatten_dict(self.project.data)
+            project_params = self.project.data
             params.update(project_params)
             
         if self.environment:
             # Add environment variables
             params.update(self.environment)
-            
         return params
         
     def validate_required(self, required_keys: list[str]) -> tuple[bool, list[str]]:

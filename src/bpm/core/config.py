@@ -75,7 +75,8 @@ def get_bpm_config(filename: str, key: Optional[str] = None) -> Any:
             
         # Return flattened config if no key provided
         if key is None:
-            return flatten_dict(config)
+            # return flatten_dict(config)
+            return config
             
         keys = key.split(".")
         value = config

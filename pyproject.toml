@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "bpm"
-version = "0.0.1"
+version = "0.0.2"
 description = "Bioinformatics Project Manager - A flexible, template-driven CLI tool for managing bioinformatics projects"
 readme = "README.md"
 requires-python = ">=3.10"

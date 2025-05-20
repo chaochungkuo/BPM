@@ -1,4 +1,4 @@
-# BPM - Genomic Project Manager
+# BPM - Bioinformatics Project Manager
 
 A flexible, template-driven CLI tool for managing genomic projects. BPM helps you organize and manage your genomic analysis workflows with a consistent project structure and template-based approach.
 

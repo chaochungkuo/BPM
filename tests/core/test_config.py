@@ -122,7 +122,7 @@ def test_get_bpm_config_empty_file(temp_config_dir, monkeypatch):
         get_bpm_config("empty.yaml", "some.key")
 
 def test_get_bpm_config_full(temp_config_dir, monkeypatch):
-    """Test getting full flattened config."""
+    """Test getting full config with nested structure."""
     # Mock importlib.resources.files to return our test config directory
     def mock_files(package):
         return temp_config_dir
@@ -132,18 +132,18 @@ def test_get_bpm_config_full(temp_config_dir, monkeypatch):
     # Get full config
     config = get_bpm_config("main.yaml")
     
-    # Test flattened structure
+    # Test nested structure
     assert isinstance(config, dict)
-    assert "templates_dir.default" in config
-    assert "template_status.statuses.completed" in config
-    assert "nested.level1.level2.level3" in config
+    assert "templates_dir" in config
+    assert "template_status" in config
+    assert "nested" in config
     
-    # Test values
-    assert config["templates_dir.default"] == "templates"
-    assert config["templates_dir.user_only"] is False
-    assert config["template_status.statuses.completed"] == "completed"
-    assert config["nested.level1.level2.level3"] == "deep_value"
-    assert config["template_files_rendered.formats"] == [".sh", ".yaml", ".json", ".txt"]
+    # Test nested values
+    assert config["templates_dir"]["default"] == "templates"
+    assert config["templates_dir"]["user_only"] is False
+    assert config["template_status"]["statuses"]["completed"] == "completed"
+    assert config["nested"]["level1"]["level2"]["level3"] == "deep_value"
+    assert config["template_files_rendered"]["formats"] == [".sh", ".yaml", ".json", ".txt"]
 
 def test_flatten_dict():
     """Test the flatten_dict function directly."""

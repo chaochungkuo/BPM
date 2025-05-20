@@ -8,8 +8,8 @@ system:
 
 # Tool Paths
 # These should be in your system PATH. If not, provide full paths.
-tools:
-  bcl-convert: bcl-convert
+tool_paths:
+  bclconvert: bcl-convert
   bcl2fastq: bcl2fastq
   cellranger: cellranger
   cellranger-atac: cellranger-atac

@@ -175,15 +175,6 @@ class Template:
                     f"Required input not found: {input_name}"
                 )
             
-            # Validate input type
-            # if value is not None:
-            #     expected_type = input_config.get("type", "string")
-            #     if not self._validate_type(value, expected_type):
-            #         raise TemplateValidationError(
-            #             f"Invalid type for input {input_name}: "
-            #             f"expected {expected_type}, got {type(value).__name__}"
-            #         )
-            
             self.inputs[input_name] = value
     
     def _validate_type(self, value: Any, expected_type: str) -> bool:

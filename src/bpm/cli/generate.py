@@ -49,18 +49,18 @@ def create_command_function(config: Dict[str, Any], template_path: Path):
     
     def command(**kwargs):
         """Template command implementation."""
-        print(f"Rendering {config['name']} ({config['description']})")
+        print(f"Rendering {config['name']}: {config['description']}")
         
         # Create context with optional project
         project = None
         if kwargs.get("project_yaml"):
             project = Project(kwargs["project_yaml"])
-        context = Context(cli_params=kwargs, project=project)
-        
+        context = Context(cli_params=kwargs, project=project, environment=True)
+        print(context.get_all())
         # Resolve parameter values using hook functions
         for name, props in config["inputs"].items():
             value = resolve_parameter_value(name, props, context.get_all())
-            context.update(name, value)
+            context.update({name: value})
             print(f"  {name}: {value}")
         
         # Create and execute template
@@ -69,9 +69,9 @@ def create_command_function(config: Dict[str, Any], template_path: Path):
         template.render(target_dir=context.get("output_dir"),
                        context=context.get_all())
         
-        print("\nOutputs will be written to:")
-        for output_name, output_path in config.get("outputs", {}).items():
-            print(f"  {output_name}: {output_path}")
+        # print("\nOutputs will be written to:")
+        # for output_name, output_path in config.get("outputs", {}).items():
+        #     print(f"  {output_name}: {output_path}")
     
     # Set the function's annotations and defaults
     command.__annotations__ = annotations
