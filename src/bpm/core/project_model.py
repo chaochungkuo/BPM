@@ -82,7 +82,7 @@ class ExportInfo(BaseModel):
     def validate_urls(cls, link: HttpUrl) -> HttpUrl:
         try:
             with Client() as client:
-                response = client.head(link, timeout=5)
+                response = client.head(str(link), timeout=5)
                 if response.status_code >= 400:
                     raise ValueError(
                         f"The following url: {link} appears to be in valid. status code {response.status_code}"
@@ -157,7 +157,7 @@ class Project:
 
         return status
 
-    def read_from_file(self, yaml_file: Path) -> "Project":
+    def read_from_file(self, yaml_file: Path) -> "Project": # type: ignore
         pass
 
     def serialize_to_file(self, yaml_path: Path) -> None:
