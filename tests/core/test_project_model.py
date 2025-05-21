@@ -5,6 +5,7 @@ from unittest.mock import patch
 
 import pytest
 from pydantic import HttpUrl, SecretStr
+from ruamel.yaml import YAML
 
 from bpm.core.project_model import (
     AnalysisInfo,
@@ -119,9 +120,45 @@ def test_retention_check(project):
     assert project.can_be_cleaned()
 
 
-# ----------------------------------
-# Async validation test for ExportInfo
-# ----------------------------------
+def test_serialize_to_file(tmp_path: Path):
+    # Setup a Project instance with sample data
+    project_dir = tmp_path / "20230501_NameA_NameB_inst_app"
+    project_dir.mkdir()
+    project = Project(project_dir=project_dir)
+
+    # Add some demultiplexing info
+    demux_info = DemultiplexInfo(
+        method_name="method1",
+        samplesheet_path=project_dir / "samplesheet.csv",
+        raw_date_path=project_dir / "raw_data",
+        demux_dir=project_dir / "demux",
+        fastq_dir=project_dir / "fastq",
+        fastq_multiqc=project_dir / "multiqc.html",
+        status=ProjectStatus.running,
+        updated_at=datetime.now(),
+    )
+    project.add_demux_info(demux_info)
+
+    # Serialize to YAML file
+    yaml_file = tmp_path / "project.yaml"
+    project.serialize_to_file(yaml_file)
+
+    yaml = YAML()
+    # Read back the YAML content
+    with yaml_file.open() as f:
+        data = yaml.load(f)
+
+    # Assertions to verify YAML content
+    assert "info" in data
+    assert "demultiplexing" in data
+    assert "method1" in data["demultiplexing"]
+    assert data["demultiplexing"]["method1"]["method_name"] == "method1"
+    assert data["demultiplexing"]["method1"]["status"] == ProjectStatus.running.value
+    assert "processing" in data
+    assert "analysis" in data
+    assert "export" in data
+    assert "history" in data
+
 
 @pytest.mark.skip
 def test_export_info_url_validation():

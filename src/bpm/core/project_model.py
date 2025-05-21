@@ -5,6 +5,14 @@ from typing import Any
 
 from httpx import Client, RequestError
 from pydantic import BaseModel, HttpUrl, SecretStr, field_validator
+from ruamel.yaml import YAML
+
+yaml = YAML()
+yaml.default_flow_style = False
+yaml.indent(sequence=4, offset=2)
+# Enable ordered dictionary support
+yaml.preserve_quotes = True
+yaml.explicit_start = True
 
 
 class ProjectStatus(StrEnum):
@@ -157,13 +165,45 @@ class Project:
 
         return status
 
-    def read_from_file(self, yaml_file: Path) -> "Project": # type: ignore
+    def read_from_file(self, yaml_file: Path) -> "Project":  # type: ignore
         pass
 
     def serialize_to_file(self, yaml_path: Path) -> None:
-        pass
+        project_dict = {
+            "info": _serialize(self.info),
+            "demultiplexing": _serialize(self.demultiplexing),
+            "processing": _serialize(self.processing),
+            "analysis": _serialize(self.analysis),
+            "export": _serialize(self.export),
+            "history": _serialize(self.history),
+        }
+
+        with open(yaml_path, "w") as f:
+            yaml.dump(project_dict, f)
 
     def _add_info(self, container: dict, key, value, check_exists: bool = True) -> None:
         if check_exists and container.get(key):
             raise ValueError("The method already exists")
         container[key] = value
+
+
+def _serialize(obj: Any) -> Any:
+    if isinstance(obj, BaseModel):
+        return _serialize(obj.model_dump())
+    if isinstance(obj, Path):
+        return str(obj)
+    if isinstance(obj, datetime):
+        return obj.isoformat()
+    if isinstance(obj, SecretStr):
+        return obj.get_secret_value()
+    if isinstance(obj, ProjectStatus):
+        return obj.value
+    if isinstance(obj, dict):
+        if len(obj.keys()) == 0:
+            return None
+        return {k: _serialize(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        if len(obj) == 0:
+            return None
+        return [_serialize(v) for v in obj]
+    return obj
