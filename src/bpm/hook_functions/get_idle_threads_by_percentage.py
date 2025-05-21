@@ -21,8 +21,8 @@ def get_idle_threads_by_percentage(inputs: Dict[str, Any]) -> int:
     # Get CPU usage for each core
     cpu_percentages = psutil.cpu_percent(interval=1, percpu=True)
     
-    # Count truly idle cores (usage < 5%)
-    idle_cores = sum(1 for usage in cpu_percentages if usage < 5)
+    # Count truly idle cores (usage < 50%)
+    idle_cores = sum(1 for usage in cpu_percentages if usage < 50)
     
     # Get percentage of idle cores to use from config
     percentage_of_cores = get_bpm_config("environment.yaml", "system.percentage_of_cores")

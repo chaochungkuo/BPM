@@ -3,6 +3,9 @@
 
 set -euo pipefail
 
+# System configuration
+RESERVED_CORES=1  # Number of cores to reserve for system processes
+
 # Get system CPU info
 TOTAL_CORES=$(nproc)
 AVAILABLE_CORES=$(( TOTAL_CORES - RESERVED_CORES > 0 ? TOTAL_CORES - RESERVED_CORES : 1 ))
@@ -16,13 +19,13 @@ echo "🧠 Total cores: $TOTAL_CORES | Idle: ${IDLE_PCT}% | Threads: $N_THREADS"
 echo "🚀 Running bcl-convert..."
 {{ tool_paths.bclconvert }} \
   --bcl-input-directory "{{ bcl_path }}" \
-  --output-directory "{{ output_dir }}" \
-  --sample-sheet "{{ samplesheet }}" \
-  --bcl-sampleproject-subdirectories true \
+  --output-directory out_fastq \
+  --sample-sheet samplesheet.csv \
   --no-lane-splitting true \
-  --bcl-num-conversion-threads "$THIRDJOBS" \
-  --bcl-num-compression-threads "$THIRDJOBS" \
-  --bcl-num-decompression-threads "$THIRDJOBS"
+  --bcl-num-conversion-threads "$N_THREADS" \
+  --bcl-num-compression-threads "$N_THREADS" \
+  --bcl-num-decompression-threads "$N_THREADS"
+# --bcl-sampleproject-subdirectories true \
 
 # Run FASTQC
 echo "🔬 Running FASTQC..."
