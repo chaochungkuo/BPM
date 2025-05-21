@@ -39,6 +39,14 @@ inputs:
       If not specified, will use the BCL directory name in the current directory.
     resolve_with: get_raw_basename_as_output
   
+  threads:
+    type: int
+    required: false
+    description: |
+      Number of threads to use for the demultiplexing.
+      If not specified, will use the number of cores defined in the environment.yaml.
+    resolve_with: get_idle_threads_by_percentage
+
   run_fastq_screen:
     type: boolean
     required: false

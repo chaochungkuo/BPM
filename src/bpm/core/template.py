@@ -19,13 +19,13 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Set
 import yaml
 import jinja2
-from datetime import datetime
-from importlib.resources import as_file, files
-from bpm.core.project import Project
+from rich import print
+from importlib.resources import files
 from bpm.core.config import get_bpm_config
 from bpm.core.context import Context
 from bpm.utils.check_tools import check_programs
-
+from bpm.utils.hook_functions import load_hook_function
+from bpm.utils.paths import resolve_path
 
 class TemplateError(Exception):
     """Base exception for template errors."""
@@ -177,6 +177,48 @@ class Template:
             
             self.inputs[input_name] = value
     
+    def apply_hook_functions(self, context: Context) -> None:
+        """Apply hook functions to inputs.
+        
+        Args:
+            context: Context object containing input values
+        """
+        
+        # Resolve parameter values using hook functions
+        for name, props in self.config["inputs"].items():
+            value = self._resolve_parameter_value(name, props, context.get_all())
+            context.update({name: value})
+            print(f"  {name}: {value}")
+    
+    def _resolve_parameter_value(self,
+                                 param_name: str,
+                                 param_config: Dict[str, Any],
+                                 params: Dict[str, Any]) -> Any:
+        """Resolve a parameter value using hook functions if specified.
+        
+        Args:
+            param_name: Name of the parameter
+            param_config: Parameter configuration from template
+            params: Current parameter values
+            
+        Returns:
+            Resolved parameter value
+        """
+        value = params.get(param_name)
+        
+        # If there's a resolve_with hook, apply it
+        if "resolve_with" in param_config:
+            try:
+                hook_function = load_hook_function(param_config["resolve_with"])
+                value = hook_function(params)
+                print(f"  Resolved {param_name} using {param_config['resolve_with']}: {value}")
+            except Exception as e:
+                print(f"Warning: Could not resolve {param_name} using {param_config['resolve_with']}: {e}")
+        elif param_config["type"] == "path":
+            value = resolve_path(value)
+            
+        return value
+
     def _validate_type(self, value: Any, expected_type: str) -> bool:
         """Validate value type.
         

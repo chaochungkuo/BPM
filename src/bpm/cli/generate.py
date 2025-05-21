@@ -8,7 +8,7 @@ from rich import print
 from bpm.core.template import Template
 from bpm.core.context import Context
 from bpm.core.project import Project
-from bpm.cli.helper import resolve_parameter_value, discover_templates, load_template_config
+from bpm.cli.helper import discover_templates, load_template_config
 
 app = typer.Typer(help="Generate files/scripts from templates.")
 
@@ -56,16 +56,10 @@ def create_command_function(config: Dict[str, Any], template_path: Path):
         if kwargs.get("project_yaml"):
             project = Project(kwargs["project_yaml"])
         context = Context(cli_params=kwargs, project=project, environment=True)
-        print(context.get_all())
-        # Resolve parameter values using hook functions
-        for name, props in config["inputs"].items():
-            value = resolve_parameter_value(name, props, context.get_all())
-            context.update({name: value})
-            print(f"  {name}: {value}")
-        
         # Create and execute template
         template = Template(template_name=config['section']+"."+config['name'])
         template.load_inputs(context)
+        template.apply_hook_functions(context)
         template.render(target_dir=context.get("output_dir"),
                        context=context.get_all())
         

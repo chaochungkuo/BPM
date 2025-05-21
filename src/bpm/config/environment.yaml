@@ -4,7 +4,7 @@
 # System Resources
 system:
   # Number of CPU cores to use by default in BPM scripts
-  n_cores: 40
+  percentage_of_cores: 0.9
 
 # Tool Paths
 # These should be in your system PATH. If not, provide full paths.

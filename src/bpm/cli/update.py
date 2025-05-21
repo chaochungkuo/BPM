@@ -5,7 +5,7 @@ from typing import Any, Dict, List
 from rich import print
 from bpm.core.project import Project
 from bpm.cli.helper import discover_templates, load_template_config, \
-    locate_project_yaml, resolve_parameter_value
+    locate_project_yaml
 import sys
 from bpm.core.config import get_bpm_config
 from datetime import datetime
