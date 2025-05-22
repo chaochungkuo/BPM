@@ -56,7 +56,8 @@ class Project:
             yaml.YAMLError: If the project file contains invalid YAML
         """
         if project_file is None:
-            self.data = OrderedDict(get_bpm_config("main.yaml", "project_base"))
+            self.data = OrderedDict()
+            self.data['project'] = get_bpm_config("main.yaml", "project")
             self.data['project']['created_at'] = datetime.now().isoformat()
         # Try to load existing file
         else:

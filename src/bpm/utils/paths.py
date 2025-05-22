@@ -3,10 +3,42 @@ Path resolution utilities
 """
 from pathlib import Path
 from typing import Dict, Optional
+from rich import print
 from bpm.core.config import get_bpm_config
 import socket
+import warnings
 
 HOST_PREFIXES = get_bpm_config("main.yaml", "host_paths")
+
+def to_host_path(input_path: str, host: Optional[str] = None) -> str:
+    """
+    Convert a simple path to host-aware format using current hostname.
+    
+    Args:
+        input_path: Simple path string (e.g., "/data/raw/data1")
+        host: Optional host name to override current hostname
+        
+    Returns:
+        str: Host-aware path string (e.g., "nextgen:/data/raw/data1")
+        
+    Examples:
+        >>> to_host_path("/data/raw/data1")
+        'current-host:/data/raw/data1'
+        >>> to_host_path("data1", host="nextgen")
+        'nextgen:data1'
+    """
+    # Use provided host or current hostname
+    host = host or socket.gethostname()
+    
+    # Warn if host not in known prefixes
+    if host not in HOST_PREFIXES:
+        print(f"[bright_red]Warning: Host '{host}' not found in known hosts: {list(HOST_PREFIXES.keys())}. Path resolution might fail.[/bright_red]")
+    
+    # Normalize path
+    path = Path(input_path)
+    path_str = str(path)
+        
+    return f"{host}:{path_str}"
 
 def resolve_path(input_path: str, base_dir: Optional[str] = None) -> str:
     """
