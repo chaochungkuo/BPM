@@ -1,4 +1,3 @@
-
 ########################################################
 # Default project.yaml
 ########################################################
@@ -11,7 +10,6 @@ project:
   project_dir: ""
   created_at: ""
   retention_until: ""
-
 
 ########################################################
 # Templates
@@ -32,12 +30,13 @@ template_status:
     running: "running"
     completed: "completed"
     failed: "failed"
-  
+
   # Default status for new templates
   default: "not_started"
 
 template_files_rendered:
-  formats: [".sh", ".yaml", ".json", ".txt", ".csv", ".tsv", ".Rmd", ".md", ".ipynb"]
+  formats:
+    [".sh", ".yaml", ".json", ".txt", ".csv", ".tsv", ".Rmd", ".md", ".ipynb"]
 ########################################################
 # Hook functions
 ########################################################
@@ -104,4 +103,10 @@ authors:
   mmabrouk:
     name: "Mohamed Hamdy Elsafi Mabrouk"
     affiliation: "Genomics Facility"
-    email: "mmabrouk@ukaachen.de" 
+    email: "mmabrouk@ukaachen.de"
+
+  ########################################################
+  # Policy
+  ########################################################
+  policy:
+    retention_policy: 30 # Days
