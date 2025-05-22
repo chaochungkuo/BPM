@@ -1,0 +1,4 @@
+*.pyc
+tests/templates/__pycache__/*
+tests/core/__pycache__/*.pyc
+test.ipynb
