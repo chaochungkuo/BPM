@@ -32,12 +32,11 @@ class BasicInfo(BaseModel):
     authors: list[str] | None = None
     created_at: datetime = datetime.now()
     # TODO: Make the retention date configurable
-    retention_until: datetime = datetime.now() + timedelta(
-        days=30
-    )  # default retention time of 30 days
+    retention_until: datetime | None = None
 
-    def model_post_init(self, context: Any) -> None:
+    def model_post_init(self, context) -> None:
         project_name = self.project_dir.name
+        self.name = project_name
         parts = str(project_name).split("_")
         assert (
             len(parts) >= 5 and len(parts) <= 6
@@ -55,7 +54,7 @@ class DemultiplexInfo(BaseModel):
     fastq_dir: Path
     fastq_multiqc: Path
     status: ProjectStatus
-    updated_at: datetime
+    updated_at: datetime = datetime.now()
 
 
 class ProcessingInfo(BaseModel):
@@ -102,6 +101,7 @@ class ExportInfo(BaseModel):
 
 class History(BaseModel):
     command: str
+    date: datetime = datetime.now()
 
 
 # Can be also dataclass
@@ -117,7 +117,7 @@ class Project:
 
     def __init__(self, project_dir: Path) -> None:
         self.info: BasicInfo = BasicInfo(project_dir=project_dir)
-        self.demultiplexing: dict[str, DemultiplexInfo] = {}
+        self.demultiplexing: DemultiplexInfo | None = None
         self.processing: dict[str, ProcessingInfo] = {}
         self.analysis: dict[str, AnalysisInfo] = {}
         self.export: ExportInfo | None = None
@@ -127,10 +127,16 @@ class Project:
         self.info.retention_until = date
 
     def can_be_cleaned(self) -> bool:
-        return datetime.now() > self.info.retention_until
+        return (
+            datetime.now() > self.info.retention_until
+            if self.info.retention_until
+            else False
+        )
 
-    def add_demux_info(self, info: DemultiplexInfo) -> None:
-        self._add_info(self.demultiplexing, info.method_name, info, check_exists=True)
+    def add_demux_info(self, info: DemultiplexInfo, override_exiting=True) -> None:
+        if self.info and not override_exiting:
+            raise ValueError("A demultiplexing information already exists")
+        self.demultiplexing = info
 
     def add_processing_info(self, processing: ProcessingInfo) -> None:
         self._add_info(
