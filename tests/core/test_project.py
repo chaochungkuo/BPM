@@ -2,175 +2,175 @@
 import pytest
 from pathlib import Path
 import tempfile
-import yaml
 from datetime import datetime, timedelta
-from bpm.core.project import Project
-from bpm.core.config import get_bpm_config
+from bpm.core.project import (
+    Project, BasicInfo, DemultiplexInfo, ProcessingInfo, 
+    AnalysisInfo, ReportInfo, ExportInfo, History, ProjectStatus
+)
 
 @pytest.fixture
-def temp_project_dir():
-    """Create a temporary directory with test project files."""
+def valid_project_dir():
+    """Create a temporary directory with valid project name."""
     with tempfile.TemporaryDirectory() as temp_dir:
-        # Create test project file
-        project_data = {
-            'project': {
-                'name': 'test_project',
-                'date': '2024-03-15',
-                'project_dir': '/path/to/project',
-                'created_at': datetime.now().isoformat()
-            },
-            'demultiplexing': {
-                'bclconvert': {
-                    'status': 'completed',
-                    'updated_at': datetime.now().isoformat(),
-                    'fastq_dir': '/path/to/fastq'
-                }
-            },
-            'history': [
-                '240315 14:30 user@host bpm run bclconvert'
-            ]
-        }
-        
-        project_file = Path(temp_dir) / "project.yaml"
-        with open(project_file, 'w') as f:
-            yaml.dump(project_data, f)
-        
-        yield project_file
+        project_dir = Path(temp_dir) / "230101_Test_Project_GF_RNAseq"
+        project_dir.mkdir()
+        yield project_dir
 
 @pytest.fixture
-def mock_config(monkeypatch):
-    """Mock config values."""
-    def mock_get_bpm_config(filename, key=None):
-        if key == "project_base":
-            return {
-                'project': {
-                    'name': '',
-                    'date': '',
-                    'project_dir': ''
-                }
-            }
-        elif key == "template_status.statuses":
-            return ['completed', 'running', 'failed']
-        return None
-    
-    monkeypatch.setattr('bpm.core.project.get_bpm_config', mock_get_bpm_config)
+def project(valid_project_dir):
+    """Create a Project instance with valid directory."""
+    return Project(valid_project_dir)
 
-def test_project_init_new(mock_config):
-    """Test initializing a new project."""
-    project = Project()
-    assert 'project' in project.data
-    assert 'created_at' in project.data['project']
-    assert project.data['project']['name'] == ''
+def test_project_init_valid(valid_project_dir):
+    """Test initializing project with valid directory."""
+    project = Project(valid_project_dir)
+    assert isinstance(project.info, BasicInfo)
+    assert project.info.name == "230101_Test_Project_GF_RNAseq"
+    assert project.info.project_date == "230101"
+    assert project.info.institute == "GF"
+    assert project.info.application == "RNAseq"
+    assert project.demultiplexing is None
+    assert project.processing == {}
+    assert project.analysis == {}
+    assert project.report is None
+    assert project.export is None
+    assert project.history == []
 
-def test_project_init_existing(temp_project_dir):
-    """Test initializing with existing project file."""
-    project = Project(temp_project_dir)
-    assert project.data['project']['name'] == 'test_project'
-    assert 'demultiplexing' in project.data
-    assert 'history' in project.data
+def test_project_init_invalid_format():
+    """Test initializing project with invalid name format."""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        invalid_dir = Path(temp_dir) / "invalid_format"
+        invalid_dir.mkdir()
+        with pytest.raises(ValueError, match="Invalid project name format"):
+            Project(invalid_dir)
 
-def test_project_init_nonexistent():
-    """Test initializing with nonexistent file."""
-    with pytest.raises(FileNotFoundError):
-        Project("nonexistent.yaml")
+def test_project_init_invalid_date():
+    """Test initializing project with invalid date format."""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        invalid_dir = Path(temp_dir) / "CC0101_Test_Test_Project_GF_RNAseq"  # Invalid year
+        invalid_dir.mkdir()
+        with pytest.raises(ValueError, match="Date Format Error"):
+            Project(invalid_dir)
 
-def test_project_save(temp_project_dir):
-    """Test saving project file."""
-    project = Project(temp_project_dir)
-    project.update_value("project.name", "updated_name")
-    
-    # Save to new file
-    new_file = temp_project_dir.parent / "new_project.yaml"
-    project.save(new_file)
-    
-    # Load and verify
-    new_project = Project(new_file)
-    assert new_project.get_value("project.name") == "updated_name"
+def test_add_demux_info(project):
+    """Test adding demultiplexing information."""
+    demux_info = DemultiplexInfo(
+        method_name="bclconvert",
+        samplesheet_path=Path("samplesheet.csv"),
+        raw_date_path=Path("raw_data"),
+        demux_dir=Path("demux"),
+        fastq_dir=Path("fastq"),
+        fastq_multiqc=Path("multiqc.html"),
+        status=ProjectStatus.not_started
+    )
+    project.add_demux_info(demux_info)
+    assert project.demultiplexing == demux_info
 
-def test_template_status(temp_project_dir, mock_config):
-    """Test template status management."""
-    project = Project(temp_project_dir)
-    
-    # Get status
-    status = project.get_template_status("demultiplexing", "bclconvert")
-    assert status == "completed"
-    
-    # Update status
-    project.update_template_status("demultiplexing", "bclconvert", "running")
-    assert project.get_template_status("demultiplexing", "bclconvert") == "running"
-    
-    # Test invalid status
-    with pytest.raises(ValueError):
-        project.update_template_status("demultiplexing", "bclconvert", "invalid")
+def test_add_processing_info(project):
+    """Test adding processing information."""
+    processing_info = ProcessingInfo(
+        method_name="star",
+        fastq_input=Path("fastq"),
+        processing_dir=Path("star"),
+        results_dir=Path("results"),
+        multiqc_report=Path("multiqc.html"),
+        status=ProjectStatus.not_started,
+        updated_at=datetime.now()
+    )
+    project.add_processing_info(processing_info)
+    assert "star" in project.processing
+    assert project.processing["star"] == processing_info
 
-def test_value_management(temp_project_dir):
-    """Test value get/set operations."""
-    project = Project(temp_project_dir)
-    
-    # Get value
-    fastq_dir = project.get_value("demultiplexing.bclconvert.fastq_dir")
-    assert fastq_dir == "/path/to/fastq"
-    
-    # Update value
-    project.update_value("demultiplexing.bclconvert.fastq_dir", "/new/path")
-    assert project.get_value("demultiplexing.bclconvert.fastq_dir") == "/new/path"
-    
-    # Test nonexistent key
-    with pytest.raises(KeyError):
-        project.get_value("nonexistent.key")
+def test_add_analysis_info(project):
+    """Test adding analysis information."""
+    analysis_info = AnalysisInfo(
+        template="differential_expression",
+        script=Path("script.R"),
+        output_html=Path("report.html"),
+        status=ProjectStatus.not_started
+    )
+    project.add_analysis_info(analysis_info)
+    assert "differential_expression" in project.analysis
+    assert project.analysis["differential_expression"] == analysis_info
 
-def test_history_management(temp_project_dir):
-    """Test history management."""
-    project = Project(temp_project_dir)
-    initial_history = len(project.data['history'])
-    
-    # Add history entry
-    project.add_history("bpm run test")
-    assert len(project.data['history']) == initial_history + 1
-    
-    # Verify history format
-    last_entry = project.data['history'][-1]
-    assert "bpm run test" in last_entry
-    assert "@" in last_entry  # Contains user@host
+def test_add_history(project):
+    """Test adding command history."""
+    cmd = "bpm run star"
+    project.add_history(cmd)
+    assert len(project.history) == 1
+    assert project.history[0].command == cmd
+    assert isinstance(project.history[0].date, datetime)
 
-def test_retention_management(temp_project_dir):
+
+def test_serialization(project, tmp_path):
+    """Test serializing and deserializing project."""
+    # Add some data
+    demux_info = DemultiplexInfo(
+        method_name="bclconvert",
+        samplesheet_path=Path("samplesheet.csv"),
+        raw_date_path=Path("raw_data"),
+        demux_dir=Path("demux"),
+        fastq_dir=Path("fastq"),
+        fastq_multiqc=Path("multiqc.html"),
+        status=ProjectStatus.completed
+    )
+    project.add_demux_info(demux_info)
+    project.add_history("bpm run bclconvert")
+    
+    # Serialize
+    yaml_path = tmp_path / "project.yaml"
+    project.serialize_to_file(yaml_path)
+    
+    # Deserialize
+    new_project = Project(project.info.project_dir)
+    new_project.read_from_file(yaml_path)
+    
+    # Compare
+    assert new_project.info.name == project.info.name
+    assert new_project.demultiplexing.method_name == project.demultiplexing.method_name
+    assert new_project.demultiplexing.status == project.demultiplexing.status
+    assert len(new_project.history) == len(project.history)
+    assert new_project.history[0].command == project.history[0].command
+
+def test_retention_date(project):
     """Test retention date management."""
-    project = Project(temp_project_dir)
+    future_date = datetime.now() + timedelta(days=30)
+    project.set_retention_date(future_date)
+    assert project.info.retention_until == future_date
+    assert not project.can_be_cleaned()
     
-    # Set retention date
-    future_date = (datetime.now() + timedelta(days=30)).isoformat()
-    project.set_retention_until(future_date)
-    assert project.get_value("project.retention_until") == future_date
-    
-    # Test invalid date
-    with pytest.raises(ValueError):
-        project.set_retention_until("invalid-date")
-    
-    # Test can_be_cleaned
-    assert not project.can_be_cleaned()  # Future date
-    
-    # Test past date
-    past_date = (datetime.now() - timedelta(days=1)).isoformat()
-    project.set_retention_until(past_date)
+    past_date = datetime.now() - timedelta(days=1)
+    project.set_retention_date(past_date)
     assert project.can_be_cleaned()
 
-
-def test_section_management(temp_project_dir):
-    """Test section management."""
-    project = Project(temp_project_dir)
+def test_add_author(project):
+    """Test adding author to project."""
+    # Mock config
+    def mock_get_bpm_config(filename, key=None):
+        if key == "authors":
+            return {
+                "test_user": {
+                    "name": "Test User",
+                    "affiliation": "Test Institute",
+                    "email": "test@example.com"
+                }
+            }
+        return None
     
-    # Get section
-    demultiplexing = project.get_section("demultiplexing")
-    assert "bclconvert" in demultiplexing
+    # Apply mock
+    import bpm.core.project
+    original_get_config = bpm.core.project.get_bpm_config
+    bpm.core.project.get_bpm_config = mock_get_bpm_config
     
-    # Update section
-    project.update_section("demultiplexing", "bclconvert", {"new_key": "value"})
-    assert project.get_value("demultiplexing.bclconvert.new_key") == "value"
-    
-    # Insert new section
-    project.insert_section("new_section", {"key": "value"})
-    assert "new_section" in project.data
-    
-    # Test duplicate section
-    with pytest.raises(ValueError):
-        project.insert_section("new_section", {"key": "value"})
+    try:
+        project.add_author("test_user")
+        assert len(project.info.authors) == 1
+        assert "Test User" in project.info.authors[0]
+        assert "Test Institute" in project.info.authors[0]
+        assert "test@example.com" in project.info.authors[0]
+        
+        with pytest.raises(ValueError, match="not in the list of available authors"):
+            project.add_author("invalid_user")
+    finally:
+        # Restore original function
+        bpm.core.project.get_bpm_config = original_get_config

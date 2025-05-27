@@ -8,7 +8,7 @@ for templates and hook functions.
 import os
 from typing import Any, Dict, Optional
 from pathlib import Path
-from bpm.core.project import Project
+from bpm.core.project_bk import Project
 from bpm.core.config import get_bpm_config
 
 

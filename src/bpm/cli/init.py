@@ -7,7 +7,7 @@ from datetime import datetime
 import yaml
 from typing import Optional
 from bpm.core.config import get_bpm_config
-from bpm.core.project import Project
+from bpm.core.project_bk import Project
 from bpm.utils.paths import to_host_path
 
 def validate_project_name(name: str) -> tuple[bool, str]:

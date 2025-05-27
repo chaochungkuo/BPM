@@ -7,7 +7,7 @@ import inspect
 from rich import print
 from bpm.core.template import Template
 from bpm.core.context import Context
-from bpm.core.project import Project
+from bpm.core.project_bk import Project
 from bpm.cli.helper import discover_templates, load_template_config
 
 app = typer.Typer(help="Generate files/scripts from templates.")

@@ -5,7 +5,7 @@ import tempfile
 import yaml
 from datetime import datetime
 from bpm.core.context import Context, ContextError
-from bpm.core.project import Project
+from bpm.core.project_bk import Project
 
 @pytest.fixture
 def temp_project_dir():

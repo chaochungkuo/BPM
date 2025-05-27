@@ -1,420 +1,611 @@
-from pathlib import Path
-from typing import Any, Dict, Optional
-from datetime import datetime
-from bpm.core.config import get_bpm_config
-import os
-import getpass
-from collections import OrderedDict
+"""Project module for BPM.
 
+This module defines the core data structures for managing bioinformatics projects.
+It includes models for project information, processing stages, and status tracking.
+
+The module uses Pydantic for data validation and serialization, with custom handling
+for special types like Path and datetime objects.
+
+Example:
+    >>> project = Project(Path("/path/to/project"))
+    >>> project.info.name = "230101_Project_GF_RNAseq"
+    >>> project.add_processing_info(ProcessingInfo(...))
+    >>> project.serialize_to_file(Path("project.yaml"))
+"""
+
+from datetime import datetime, timedelta
+from enum import StrEnum
+from pathlib import Path
+from typing import Any, Self
+
+from httpx import Client, RequestError
+from pydantic import BaseModel, HttpUrl, SecretStr, field_validator, model_validator, ValidationError
 from ruamel.yaml import YAML
-from pathlib import Path
+from rich.console import Console
+from rich.panel import Panel
 
+from bpm.utils.file_io import load_yaml, save_yaml
+from bpm.core.config import get_bpm_config
+# Configure YAML serializer
 yaml = YAML()
 yaml.default_flow_style = False
 yaml.indent(sequence=4, offset=2)
-# Enable ordered dictionary support
 yaml.preserve_quotes = True
 yaml.explicit_start = True
 
+# Configure rich console
+console = Console()
+
+
+class ProjectStatus(StrEnum):
+    """Enumeration of possible project statuses.
+    
+    Attributes:
+        not_started: Project has been created but not started
+        running: Project is currently being processed
+        pending: Project is waiting for resources or dependencies
+        completed: Project has finished successfully
+        failed: Project encountered an error and failed
+    """
+    not_started = "not_started"
+    running = "running"
+    pending = "pending"
+    completed = "completed"
+    failed = "failed"
+
+
+class ProjectNameValidator:
+    """Validator for project name format and content."""
+    
+    @staticmethod
+    def validate_format(project_name: str) -> None:
+        """Validate project name format.
+        
+        Args:
+            project_name: Project name to validate
+            
+        Raises:
+            ValueError: If project name doesn't match expected format
+        """
+        parts = project_name.split("_")
+        if not (5 <= len(parts) <= 6):
+            error_msg = (
+                f"Invalid project name format: {project_name}\n\n"
+                "Project name must follow the format:\n"
+                "YYMMDD_name1_name2_institute_application\n\n"
+            )
+            console.print(Panel(error_msg, title="Project Name Error", border_style="red"))
+            raise ValueError(error_msg)
+    
+    @staticmethod
+    def validate_date(date_str: str) -> None:
+        """Validate date format in project name.
+        
+        Args:
+            date_str: Date string to validate
+            
+        Raises:
+            ValueError: If date format is invalid
+        """
+        try:
+            datetime.strptime(date_str, "%y%m%d")
+        except ValueError as e:
+            error_msg = (
+                f"Invalid date format in project name: {date_str}\n\n"
+                "Date must be in YYMMDD format\n"
+                "Example: 230102 for January 2, 2023"
+            )
+            console.print(Panel(error_msg, title="Date Format Error", border_style="red"))
+            raise ValueError(error_msg) from e
+
+
+class ProjectNameExtractor:
+    """Extractor for project name components."""
+    
+    @staticmethod
+    def extract_components(project_name: str) -> tuple[str, str, str, str]:
+        """Extract components from project name.
+        
+        Args:
+            project_name: Project name to extract from
+            
+        Returns:
+            Tuple of (date, name1, institute, application)
+            
+        Raises:
+            ValueError: If project name format is invalid
+        """
+        parts = project_name.split("_")
+        if not (5 <= len(parts) <= 6):
+            raise ValueError("Invalid project name format")
+            
+        return parts[0], parts[1], parts[-2], parts[-1]
+
+
+class BasicInfo(BaseModel):
+    """Basic project information model.
+    
+    This model stores essential project metadata including directory, name,
+    dates, and authorship information. It automatically extracts information
+    from the project directory name following the format:
+    YYMMDD_name1_name2_institute_application
+
+    Attributes:
+        project_dir: Path to project directory
+        name: Project name (extracted from directory)
+        project_date: Project start date (extracted from name)
+        institute: Institute name (extracted from name)
+        application: Application type (extracted from name)
+        authors: List of project authors
+        created_at: Project creation timestamp
+        retention_until: Project retention deadline
+    """
+    project_dir: Path
+    name: str | None = None
+    project_date: str | None = None
+    institute: str | None = None
+    application: str | None = None
+    authors: list[str] = []
+    created_at: datetime = datetime.now()
+    retention_until: datetime | None = None
+
+    @model_validator(mode='before')
+    @classmethod
+    def validate_project_name(cls, data: Any) -> Any:
+        """Validate project name format before model creation.
+        
+        Args:
+            data: Raw input data, could be dict or other types
+            
+        Returns:
+            Validated data
+            
+        Raises:
+            ValueError: If project name doesn't match expected format
+        """
+        if not isinstance(data, dict):
+            return data
+            
+        project_dir = data.get('project_dir')
+        if not project_dir:
+            return data
+            
+        project_name = project_dir.name
+        try:
+            ProjectNameValidator.validate_format(project_name)
+            ProjectNameValidator.validate_date(project_name.split("_")[0])
+        except ValueError as e:
+            # Re-raise as ValueError to maintain clean error message
+            raise ValueError(str(e))
+        
+        return data
+
+    def model_post_init(self, context) -> None:
+        """Extract project information from directory name.
+        
+        Raises:
+            ValueError: If project name doesn't match expected format
+        """
+        try:
+            project_name = self.project_dir.name
+            self.name = project_name
+            
+            date, name1, institute, application = ProjectNameExtractor.extract_components(project_name)
+            self.project_date = date
+            self.institute = institute
+            self.application = application
+            
+        except Exception as e:
+            if not isinstance(e, ValueError):
+                error_msg = (
+                    f"Error processing project name: {str(e)}\n\n"
+                    "Please ensure the project directory name follows the format:\n"
+                    "YYMMDD_name1_name2_institute_application"
+                )
+                console.print(Panel(error_msg, title="Project Name Error", border_style="red"))
+                raise ValueError(error_msg) from e
+            raise
+
+
+class DemultiplexInfo(BaseModel):
+    """Demultiplexing information model.
+    
+    Tracks information about the demultiplexing process including input/output
+    paths and current status.
+
+    Attributes:
+        method_name: Name of demultiplexing method used
+        samplesheet_path: Path to samplesheet file
+        raw_date_path: Path to raw data
+        demux_dir: Demultiplexing output directory
+        fastq_dir: FASTQ output directory
+        fastq_multiqc: MultiQC report path
+        status: Current demultiplexing status
+        updated_at: Last update timestamp
+    """
+    method_name: str
+    samplesheet_path: Path
+    raw_date_path: Path
+    demux_dir: Path
+    fastq_dir: Path
+    fastq_multiqc: Path
+    status: ProjectStatus
+    updated_at: datetime = datetime.now()
+
+
+class ProcessingInfo(BaseModel):
+    """Processing information model.
+    
+    Tracks information about data processing steps including input/output
+    paths and current status.
+
+    Attributes:
+        method_name: Name of processing method
+        fastq_input: Input FASTQ directory
+        processing_dir: Processing output directory
+        results_dir: Results directory
+        multiqc_report: MultiQC report path
+        status: Current processing status
+        updated_at: Last update timestamp
+    """
+    method_name: str
+    fastq_input: Path
+    processing_dir: Path
+    results_dir: Path
+    multiqc_report: Path
+    status: ProjectStatus
+    updated_at: datetime
+
+
+class AnalysisInfo(BaseModel):
+    """Analysis information model.
+    
+    Tracks information about analysis steps including script paths
+    and current status.
+
+    Attributes:
+        template: Analysis template name
+        script: Path to analysis script
+        output_html: Path to HTML output
+        status: Current analysis status
+    """
+    template: str
+    script: Path
+    output_html: Path
+    status: ProjectStatus
+
+
+class ReportInfo(BaseModel):
+    """Report information model.
+    
+    Tracks information about project reports including paths
+    and current status.
+
+    Attributes:
+        report_entry: Path to report entry
+        report_url: URL to report
+        status: Current report status
+    """
+    report_entry: Path
+    report_url: HttpUrl
+    status: ProjectStatus
+
+
+class ExportInfo(BaseModel):
+    """Export information model.
+    
+    Tracks information about project exports including paths,
+    URLs, and access credentials.
+
+    Attributes:
+        export_dir: Export directory path
+        apache_url: Apache server URL
+        report_url: Report URL
+        cloud_export_url: Cloud export URL
+        export_use: Export user
+        export_password: Export password
+        status: Current export status
+    """
+    export_dir: Path
+    apache_url: HttpUrl
+    report_url: HttpUrl
+    cloud_export_url: HttpUrl
+    export_use: str
+    export_password: SecretStr
+    status: ProjectStatus
+
+    @field_validator("apache_url", "report_url", "cloud_export_url", mode="before")
+    @classmethod
+    def validate_urls(cls, link: HttpUrl) -> HttpUrl:
+        """Validate that URLs are accessible.
+        
+        Args:
+            link: URL to validate
+            
+        Returns:
+            Validated URL
+            
+        Raises:
+            ValueError: If URL is not accessible or returns error
+        """
+        try:
+            with Client() as client:
+                response = client.head(str(link), timeout=5)
+                if response.status_code >= 400:
+                    raise ValueError(
+                        f"The following url: {link} appears to be in valid. status code {response.status_code}"
+                    )
+        except RequestError as e:
+            raise ValueError(f"URL check failed: {e}")
+        return link
+
+
+class History(BaseModel):
+    """Command history model.
+    
+    Tracks executed commands with timestamps.
+
+    Attributes:
+        command: Executed command string
+        date: Command execution timestamp
+    """
+    command: str
+    date: datetime = datetime.now()
+
 
 class Project:
-    """Handle project.yaml operations and configuration management.
+    """Main project class for managing bioinformatics projects.
     
-    This class manages the project configuration file, providing functionality for:
-    - Project initialization and file operations (create, load, save)
-    - Template status tracking and validation
-    - Project history logging with user and host information
-    - Path and value management using dot notation
-    - Project retention date management
-    
-    The project file is stored in YAML format and contains sections for:
-    - project: Core project information (always at the top)
-    - template sections: Configuration for different processing templates
-    - history: Command execution history (always at the bottom)
-    
-    Example:
-        >>> project = Project("project.yaml")
-        >>> project.update_template_status("demultiplexing", "bclconvert", "running")
-        >>> project.add_history("bpm run bclconvert")
-        >>> project.set_retention_until("2024-12-31")
-        >>> project.save("project.yaml")
-    """
-    
-    def __init__(
-        self,
-        project_file: str | Path | None = None,
-    ) -> None:
-        """Initialize Project with optional project.yaml path.
-        
-        Args:
-            project_file: Path to the project file. If None, a new file will be created
-                        with default configuration from main.yaml.
-        
-        Raises:
-            ValueError: If project_info is missing when creating new project
-            FileNotFoundError: If project file doesn't exist
-            yaml.YAMLError: If the project file contains invalid YAML
-        """
-        if project_file is None:
-            self.data = OrderedDict()
-            self.data['project'] = get_bpm_config("main.yaml", "project")
-            self.data['project']['created_at'] = datetime.now().isoformat()
-        # Try to load existing file
-        else:
-            try:
-                self.data = self._load(project_file)
-            except:
-                raise FileNotFoundError(f"Project file not found: {project_file}")
+    This class manages all aspects of a bioinformatics project including
+    basic information, processing steps, analysis, reporting, and history.
+    It provides methods for adding and updating project information and
+    serializing the project state to YAML.
 
-    def _load(self, project_file: str | Path) -> OrderedDict[str, Any]:
-        """Load project.yaml file.
+    Attributes:
+        info: Basic project information
+        demultiplexing: Demultiplexing information
+        processing: Dictionary of processing steps
+        analysis: Dictionary of analysis steps
+        report: Report information
+        export: Export information
+        history: Command history
+    """
+    __slots__ = [
+        "info",
+        "demultiplexing",
+        "processing",
+        "analysis",
+        "report",
+        "export",
+        "history",
+    ]
+
+    def __init__(self, project_dir: Path) -> None:
+        """Initialize a new project.
         
         Args:
-            project_file: Path to the project file to load
-            
-        Returns:
-            OrderedDict containing project data with the following structure:
-            {
-                'project': {...},  # Project information (always first)
-                'section_name': {  # Template sections
-                    'template_name': {
-                        'status': str,
-                        'updated_at': str,
-                        ...
-                    }
-                },
-                'history': [...]  # Command history (always last)
-            }
-        
-        Raises:
-            FileNotFoundError: If project file doesn't exist
-            yaml.YAMLError: If YAML is invalid
+            project_dir: Path to project directory
         """
-        try:
-            with open(project_file, 'r') as f:
-                return yaml.load(f)
-        except FileNotFoundError:
-            raise FileNotFoundError(f"Project file not found: {project_file}")
-        except yaml.YAMLError as e:
-            raise ValueError(f"Invalid YAML in {project_file}: {e}")
-    
-    def save(self, project_file: str | Path) -> None:
-        """Save changes to project.yaml.
+        self.info: BasicInfo = BasicInfo(project_dir=project_dir)
+        self.demultiplexing: DemultiplexInfo | None = None
+        self.processing: dict[str, ProcessingInfo] = {}
+        self.analysis: dict[str, AnalysisInfo] = {}
+        self.report: ReportInfo | None = None
+        self.export: ExportInfo | None = None
+        self.history: list[History] = []
+
+    def set_retention_date(self, date: datetime = None) -> None:
+        """Set project retention date.
         
         Args:
-            project_file: Path where the project file should be saved
-            
-        Raises:
-            IOError: If file cannot be written
-            PermissionError: If insufficient permissions to write file
+            date: Retention deadline
         """
-        try:
-            # Create a new ordered dictionary with the desired section order
-            ordered_data = OrderedDict()
-            
-            # Always put project section first
-            if 'project' in self.data:
-                ordered_data['project'] = self.data['project']
-            
-            # Add all other sections except history
-            for section in self.data:
-                if section not in ['project', 'history']:
-                    ordered_data[section] = self.data[section]
-            
-            # Always put history section last
-            if 'history' in self.data:
-                ordered_data['history'] = self.data['history']
-            
-            with open(project_file, 'w') as f:
-                yaml.dump(ordered_data, f)
-        except Exception as e:
-            raise IOError(f"Failed to save project file: {e}")
-    
-    def list_templates(self) -> Dict[str, list[str]]:
-        """List all templates by section.
+        if date is None:
+            retention_days = get_bpm_config("main.yaml", "policy.retention_policy")
+            self.info.retention_until = datetime.now() + timedelta(days=retention_days)
+        else:
+            self.info.retention_until = date
+
+    def can_be_cleaned(self) -> bool:
+        """Check if project can be cleaned up.
         
         Returns:
-            Dictionary mapping section names to lists of template names.
-            Example:
-                {
-                    'demultiplexing': ['bclconvert'],
-                    'processing': ['nfcore_3mRNAseq']
-                }
+            True if project has passed retention date
         """
-        templates = {}
-        for section in self.data:
-            if section not in ['project', 'history']:
-                templates[section] = list(self.data[section].keys())
-        return templates
-    
-    # Status Management
-    def get_template_status(self, section: str, template: str) -> str:
-        """Get status of a template.
+        return (
+            datetime.now() > self.info.retention_until
+            if self.info.retention_until
+            else False
+        )
+
+    def add_demux_info(self, info: DemultiplexInfo, override_exiting=True) -> None:
+        """Add demultiplexing information.
         
         Args:
-            section: Template section name (e.g., 'demultiplexing')
-            template: Template name within the section (e.g., 'bclconvert')
-        
-        Returns:
-            Current status of the template as a string
+            info: Demultiplexing information
+            override_exiting: Whether to override existing info
             
         Raises:
-            KeyError: If section or template doesn't exist
+            ValueError: If info exists and override is False
         """
+        if self.info and not override_exiting:
+            raise ValueError("A demultiplexing information already exists")
+        self.demultiplexing = info
+
+    def add_processing_info(self, processing: ProcessingInfo) -> None:
+        """Add processing information.
         
-        status = self.data[section][template]['status']
+        Args:
+            processing: Processing information
+            
+        Raises:
+            ValueError: If method already exists
+        """
+        self._add_info(
+            self.processing, processing.method_name, processing, check_exists=True
+        )
+
+    def add_analysis_info(self, analysis: AnalysisInfo) -> None:
+        """Add analysis information.
+        
+        Args:
+            analysis: Analysis information
+            
+        Raises:
+            ValueError: If template already exists
+        """
+        self._add_info(self.analysis, analysis.template, analysis, check_exists=True)
+
+    def add_history(self, cmd: str) -> None:
+        """Add command to history.
+        
+        Args:
+            cmd: Command string to add
+        """
+        self.history.append(History(command=cmd))
+
+    def get_status_summary(self) -> dict[str, Any]:
+        """Get summary of project status.
+        
+        Returns:
+            Dictionary containing status counts and template lists
+        """
+        status: dict[str, Any] = {
+            "total_templates": 0,
+            "status_counts": {s.value: 0 for s in ProjectStatus.__members__.values()},
+            "template_by_status": {
+                s.value: [] for s in ProjectStatus.__members__.values()
+            },
+        }
+
+        for category in [self.demultiplexing, self.processing, self.analysis]:
+            for method, entry in category.items():
+                status["total_templates"] += 1
+                status["status_counts"][entry.status.value] += 1
+                key = (
+                    entry.method_name
+                    if category is not self.analysis
+                    else entry.template
+                )
+                status["template_by_status"][entry.status.value].append(key)
+
         return status
-    
-    def update_template_status(self, section: str, template: str, status: str) -> None:
-        """Update status of a template.
+
+    def read_from_file(self, yaml_file: Path) -> "Project":
+        """Read project from YAML file.
         
         Args:
-            section: Template section name (e.g., 'demultiplexing')
-            template: Template name within the section (e.g., 'bclconvert')
-            status: New status to set (must be one of the valid statuses)
-        
-        Raises:
-            ValueError: If status is invalid or transition is not allowed
-            KeyError: If section or template doesn't exist
-        """
-        valid_statuses = get_bpm_config("main.yaml",
-                                        "template_status.statuses")
-        # Get current status
-        current_status = self.get_template_status(section, template)
-        
-        # Check if transition is valid
-        if status not in valid_statuses:
-            raise ValueError(
-                f"Cannot transition from {current_status} to {status}. "
-                f"Valid transitions: {valid_statuses}"
-            )
-        
-        self.update_section(section, template, {
-            'status': status,
-            'updated_at': datetime.now().isoformat()
-        })
-    
-    def get_status_summary(self) -> Dict[str, Any]:
-        """Get a summary of all template statuses.
-        
+            yaml_file: Path to YAML file
+            
         Returns:
-            Dictionary containing:
-            - total_templates: Total number of templates
-            - status_counts: Count of templates in each status
-            - templates_by_status: Lists of templates grouped by status
-            Example:
-                {
-                    'total_templates': 2,
-                    'status_counts': {'running': 1, 'completed': 1},
-                    'templates_by_status': {
-                        'running': ['demultiplexing.bclconvert'],
-                        'completed': ['processing.nfcore_3mRNAseq']
-                    }
-                }
+            Project instance
+            
+        Raises:
+            FileNotFoundError: If the file doesn't exist
+            YAMLError: If the file contains invalid YAML
+            ValueError: If the loaded data doesn't match expected structure
         """
-        valid_statuses = get_bpm_config("main.yaml",
-                                        "template_status.statuses")
-        summary = {
-            'total_templates': 0,
-            'status_counts': {status: 0 for status in valid_statuses},
-            'templates_by_status': {status: [] for status in valid_statuses}
+        data = load_yaml(yaml_file)
+        
+        # Update project attributes from loaded data
+        if "info" in data:
+            self.info = BasicInfo(**data["info"])
+        if "demultiplexing" in data:
+            self.demultiplexing = DemultiplexInfo(**data["demultiplexing"])
+        if "processing" in data:
+            self.processing = {
+                k: ProcessingInfo(**v) for k, v in data["processing"].items()
+            }
+        if "analysis" in data:
+            self.analysis = {
+                k: AnalysisInfo(**v) for k, v in data["analysis"].items()
+            }
+        if "report" in data:
+            self.report = ReportInfo(**data["report"])
+        if "export" in data:
+            self.export = ExportInfo(**data["export"])
+        if "history" in data:
+            self.history = [History(**h) for h in data["history"]]
+            
+        return self
+
+    def serialize_to_file(self, yaml_path: Path) -> None:
+        """Serialize project to YAML file.
+        
+        Args:
+            yaml_path: Path to output YAML file
+            
+        Raises:
+            OSError: If the file cannot be written
+            YAMLError: If the data cannot be serialized to YAML
+        """
+        project_dict = {
+            "info": _serialize(self.info),
+            "demultiplexing": _serialize(self.demultiplexing),
+            "processing": _serialize(self.processing),
+            "analysis": _serialize(self.analysis),
+            "report": _serialize(self.report),
+            "export": _serialize(self.export),
+            "history": _serialize(self.history),
         }
         
-        for section in self.data:
-            if section not in ['project', 'history']:
-                for template, data in self.data[section].items():
-                    summary['total_templates'] += 1
-                    status = data.get('status')
-                    summary['status_counts'][status] += 1
-                    summary['templates_by_status'][status].append(f"{section}.{template}")
-        
-        return summary
-    
-    # History Management
-    def add_history(self, command: str) -> None:
-        """Add a command to history with user information.
-        
-        Args:
-            command: The command to add to history
-            
-        The history entry will be in the format:
-        "YYMMDD HH:MM user@host command"
-        Example: "240315 14:30 john@server bpm run bclconvert"
-        """
-        if 'history' not in self.data:
-            self.data['history'] = []
-        
-        # Get user and host information
-        user = getpass.getuser()
-        host = os.uname().nodename
-        
-        # Format timestamp and create history entry
-        timestamp = datetime.now().strftime("%y%m%d %H:%M")
-        history_entry = f"{timestamp} {user}@{host} {command}"
-        
-        self.data['history'].append(history_entry)
-    
-    # Section Management
-    def get_section(self, section: str) -> Dict[str, Any]:
-        """Get a section from project data.
-        
-        Args:
-            section: Section name to retrieve (e.g., 'project', 'history', 'demultiplexing')
-        
-        Returns:
-            Dictionary containing section data
-            
-        Raises:
-            KeyError: If section doesn't exist
-        """
-        if section not in self.data:
-            raise KeyError(f"Section not found: '{section}'")
-        return self.data[section]
-    
-    def update_section(self, section: str, subsection: str, data: Dict[str, Any]) -> None:
-        """Update a subsection in project data.
-        
-        Args:
-            section: Section name (e.g., 'demultiplexing')
-            subsection: Subsection name (e.g., 'bclconvert')
-            data: Dictionary containing new data to merge with existing subsection
-            
-        Note:
-            - This will merge the new data with existing subsection data
-            - If section or subsection doesn't exist, they will be created
-            - An 'updated_at' timestamp will be added if not present
-        """
-        if section not in self.data:
-            self.data[section] = {}
-        
-        if subsection not in self.data[section]:
-            self.data[section][subsection] = {}
-        
-        # Update the subsection with new data
-        self.data[section][subsection].update(data)
-        
-        # Add timestamp if not present
-        if 'updated_at' not in self.data[section][subsection]:
-            self.data[section][subsection]['updated_at'] = datetime.now().isoformat()
-    
-    def insert_section(self, section: str, data: Dict[str, Any]) -> None:
-        """Insert a new section into project data.
-        
-        Args:
-            section: Section name to insert
-            data: Dictionary containing section data
-            
-        Raises:
-            ValueError: If section already exists
-        """
-        if section in self.data:
-            raise ValueError(f"Section {section} already exists")
-        self.data[section] = data
-    
-    # Path and Value Management
-    def get_value(self, path: str) -> Any:
-        """Get a value using dot notation.
-        
-        Args:
-            path: Dot-separated path to the value (e.g., 'demultiplexing.bclconvert.fastq_dir')
-            
-        Returns:
-            Value at the specified path
-            
-        Raises:
-            KeyError: If path doesn't exist or is invalid
-        """
-        keys = path.split(".")
-        value = self.data
-        for key in keys:
-            if key not in value:
-                raise KeyError(f"Key not found: '{path}' (missing: '{key}')")
-            value = value[key]
-        return value
-    
-    def update_value(self, path: str, value: Any) -> None:
-        """Update a value using dot notation.
-        
-        Args:
-            path: Dot-separated path to the value (e.g., 'demultiplexing.bclconvert.fastq_dir')
-            value: New value to set
-            
-        Note:
-            - This will create intermediate dictionaries if they don't exist
-            - For template sections, an 'updated_at' timestamp will be added if not present
-        """
-        # Split the path into keys
-        keys = path.split('.')
-        # Start with the root data
-        current = self.data
-        
-        # Traverse and create dictionaries as needed
-        for key in keys[:-1]:
-            if key not in current:
-                current[key] = {}
-            current = current[key]
-        
-        # Set the final value
-        current[keys[-1]] = value
-        
-        # Add timestamp if we're updating a template section
-        if len(keys) >= 2 and 'updated_at' not in current:
-            current['updated_at'] = datetime.now().isoformat()
-    
-    # Retention Management
-    def set_retention_until(self, date: str | datetime) -> None:
-        """Set the date until which the project should be retained.
-        
-        Args:
-            date: ISO format date string (YYYY-MM-DD) or datetime object
-        
-        Raises:
-            ValueError: If date format is invalid or not in ISO format
-        """
-        if isinstance(date, datetime):
-            retention_date = date.isoformat()
-        else:
-            retention_date = date
-        # Validate date format
-        try:
-            datetime.fromisoformat(retention_date)
-        except ValueError:
-            raise ValueError(f"Invalid date format: {retention_date}. Use ISO format (YYYY-MM-DD)")
-        
-        # Update project info
-        self.update_value("project.retention_until", retention_date)
-    
-    def can_be_cleaned(self) -> bool:
-        """Check if the project can be cleaned based on retention date.
-        
-        Returns:
-            True if:
-            - Project has a retention date
-            - Current date is past the retention date
-            False if:
-            - No retention date is set
-            - Retention date is invalid
-            - Current date is before retention date
-        """
-        project_info = self.get_project_info()
-        retention_date = project_info.get('retention_until')
-        
-        if not retention_date:
-            return False  # Don't clean if no retention date is set
-        
-        try:
-            retention = datetime.fromisoformat(retention_date)
-            return datetime.now() > retention
-        except ValueError:
-            return False  # Don't clean if date is invalid
+        save_yaml(project_dict, yaml_path)
 
-    def get_project_info(self) -> Dict[str, Any]:
-        """Get project information.
+    def _add_info(self, container: dict, key, value, check_exists: bool = True) -> None:
+        """Add information to container.
         
-        Returns:
-            Dictionary containing project information
+        Args:
+            container: Target container dictionary
+            key: Key to add
+            value: Value to add
+            check_exists: Whether to check for existing key
             
         Raises:
-            KeyError: If project section doesn't exist
+            ValueError: If key exists and check_exists is True
         """
-        return self.get_section("project")
+        if check_exists and container.get(key):
+            raise ValueError("The method already exists")
+        container[key] = value
+
+    def add_author(self, author: str) -> None:
+        """Add author to project.
+        
+        Args:
+            author: Author name
+        """
+        available_authors = get_bpm_config("main.yaml", "authors")
+        if author not in available_authors:
+            raise ValueError(f"Author {author} is not in the list of available authors [{', '.join(available_authors)}]")
+        else:
+            self.info.authors.append(f"{available_authors[author]['name']}, "
+                                     f"{available_authors[author]['affiliation']} "
+                                     f"<{available_authors[author]['email']}>")
+
+def _serialize(obj: Any) -> Any:
+    """Serialize object to YAML-compatible format.
+    
+    Args:
+        obj: Object to serialize
+        
+    Returns:
+        Serialized object
+    """
+    if isinstance(obj, BaseModel):
+        return _serialize(obj.model_dump())
+    if isinstance(obj, Path):
+        return str(obj)
+    if isinstance(obj, datetime):
+        return obj.strftime("%Y-%m-%d %H:%M")  # Format without seconds
+    if isinstance(obj, SecretStr):
+        return obj.get_secret_value()
+    if isinstance(obj, ProjectStatus):
+        return obj.value
+    if isinstance(obj, dict):
+        if len(obj.keys()) == 0:
+            return None
+        return {k: _serialize(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        if len(obj) == 0:
+            return None
+        return [_serialize(v) for v in obj]
+    return obj

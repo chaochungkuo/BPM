@@ -105,8 +105,8 @@ authors:
     affiliation: "Genomics Facility"
     email: "mmabrouk@ukaachen.de"
 
-  ########################################################
-  # Policy
-  ########################################################
-  policy:
-    retention_policy: 30 # Days
+########################################################
+# Policy
+########################################################
+policy:
+  retention_policy: 30 # Days

@@ -3,7 +3,7 @@ import typer
 from pathlib import Path
 from typing import Any, Dict, List
 from rich import print
-from bpm.core.project import Project
+from bpm.core.project_bk import Project
 from bpm.cli.helper import discover_templates, load_template_config, \
     locate_project_yaml
 import sys
