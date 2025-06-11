@@ -340,6 +340,13 @@ class Project():
         if isinstance(obj, Path):
             host_aware_path = host_solver.to_host_path(obj)
             return host_aware_path
+        if isinstance(obj, str):
+            try:
+                path = Path(obj).exists()
+                host_aware_path = host_solver.to_host_path(obj)
+                return host_aware_path
+            except ValueError:
+                return obj
         if isinstance(obj, datetime):
             return obj.strftime("%Y-%m-%d %H:%M:%S")  # Include seconds for command history
         if isinstance(obj, ProjectStatus):

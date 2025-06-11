@@ -184,6 +184,8 @@ class Controller:
         self.process_template_inputs()
         self.check_template_required_tools()
         self.render_template()
+        self.insert_temp_to_project()
+        self.project.save_to_file()
 
     def process_template_inputs(self) -> None:
         """Process template inputs and resolve their values.
@@ -324,8 +326,6 @@ class Controller:
         render_context.update(self.context)
         # Render template
         self.template.render(context=render_context)
-        self.insert_temp_to_project()
-        self.project.save_to_file()
 
     def insert_temp_to_project(self) -> None:
         """Insert the rendered template into the project.
