@@ -1,0 +1,82 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "bpm"
+version = "0.0.3"
+description = "Bioinformatics Project Manager - A flexible, template-driven CLI tool for managing bioinformatics projects"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [
+    { name = "Joseph Chao-Chung Kuo", email = "chao-chung.kuo@rwth-aachen.de" }
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+    "Environment :: Console",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+dependencies = [
+    "pydantic>=2.0.0",
+    "pyyaml>=6.0.0",
+    "typer>=0.9.0",
+    "rich>=13.0.0",
+    "jinja2>=3.1.0",
+    "ruamel.yaml>=0.17.0",
+    "psutil>=6.0.0",
+    "httpx>=0.24.0",
+    "tomli>=2.0.0",
+    "tomli-w>=1.0.0",
+    "gitpython>=3.1.0"
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "black>=23.0.0",
+    "isort>=5.0.0",
+    "mypy>=1.0.0",
+    "ruff>=0.1.0",
+    "ipython>=8.0.0"
+]
+
+[project.scripts]
+bpm = "bpm.cli.main:app"
+
+[project.urls]
+"Homepage" = "https://github.com/ckuo/bpm"
+"Bug Tracker" = "https://github.com/ckuo/bpm/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/bpm"]
+
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-v --cov=bpm"
+
+[tool.coverage.run]
+source = ["src"]
+omit = ["tests/*"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if __name__ == .__main__.:",
+    "raise NotImplementedError",
+    "if TYPE_CHECKING:",
+    "pass",
+    "@abstractmethod",
+    "raise ImportError",
+] 
