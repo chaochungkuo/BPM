@@ -17,10 +17,43 @@ from ..utils.path import path
 console = BPMConsole()
 
 def run(
-    workflow: str = typer.Argument(..., help="Workflow to run (e.g., export:html_report_RNAseq)"),
-    project: Path = typer.Option(..., "--project", "-p", help="Path to project.yaml")
-):
-    """Run a workflow."""
-    console.section("BPM Run", f"Running workflow: {workflow}")
-    console.info(f"Workflow: {workflow}")
-    console.path(f"Project file: {project}") 
+    project: Path = typer.Option(
+        ...,
+        "--project",
+        "-p",
+        help="Path to project.yaml"
+    ),
+    verbose: bool = typer.Option(
+        False,
+        "--verbose",
+        "-v",
+        help="Show detailed logging information"
+    )
+) -> None:
+    """Run a BPM project.
+    
+    Args:
+        project: Path to project.yaml
+        verbose: Show detailed logging information
+    """
+    try:
+        if verbose:
+            console.info(f"Loading project from {project}")
+            
+        # Load project
+        if not project.exists():
+            console.error(f"Project file not found: {project}")
+            raise typer.Exit(1)
+            
+        # Initialize controller
+        controller = Controller(verbose=verbose)
+        controller.load_project(project)
+        
+        # Run project
+        if verbose:
+            console.info("Starting project execution")
+        controller.run_project()
+        
+    except Exception as e:
+        console.error(f"Failed to run project: {e}")
+        raise typer.Exit(1) 

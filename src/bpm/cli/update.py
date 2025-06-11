@@ -58,11 +58,6 @@ def update(
     
     This command updates the output values for a specific template in a project
     by running the output resolvers defined in the template.
-    
-    Args:
-        template: Template name in format 'section:name' (e.g., 'demultiplexing:bclconvert')
-        project: Path to project.yaml
-        verbose: Show detailed logging information
     """
     try:
         # Parse template name

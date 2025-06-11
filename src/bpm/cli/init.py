@@ -3,14 +3,10 @@
 This module provides the command-line interface for initializing new BPM projects.
 """
 
-import sys
 from pathlib import Path
 from typing import Optional
 
 import typer
-from rich.console import Console
-from rich.prompt import Prompt
-from rich.table import Table
 
 from ..core.controller import Controller, ControllerError
 from ..utils.ui.console import BPMConsole
@@ -40,6 +36,12 @@ def init(
         "--force",
         "-f",
         help="Force overwrite if project directory exists"
+    ),
+    verbose: bool = typer.Option(
+        False,
+        "--verbose",
+        "-v",
+        help="Show detailed logging information"
     )
 ) -> None:
     """Initialize a new BPM project.
@@ -51,6 +53,7 @@ def init(
         --from/-fr: Path to an existing project.yaml to inherit settings from
         --authors/-a: Comma-separated list of author IDs to add to the project
         --force/-f: Force overwrite if project directory already exists
+        --verbose/-v: Show detailed logging information
     
     The project_path argument can be either:
     1. Just the project name (creates in current directory)
@@ -76,18 +79,35 @@ def init(
         bpm init 230101_Name1_Name2_Institute_Application --from /path/to/source/project.yaml --authors ckuo,lgan --force
     """
     try:
+        if verbose:
+            console.info(f"Initializing project: {project_path}")
+            
         # Convert paths to host format for storage
         project_path = Path(project_path).resolve()
+        if verbose:
+            console.info(f"Resolved project path: {project_path}")
+            
         if from_project:
             from_project = Path(from_project).resolve()
+            if verbose:
+                console.info(f"Using source project: {from_project}")
         
         # Parse authors list
         author_list = authors.split(",") if authors else []
+        if verbose:
+            if author_list:
+                console.info(f"Adding authors: {', '.join(author_list)}")
+            else:
+                console.info("No authors specified")
         
         # Initialize controller
-        controller = Controller()
+        controller = Controller(verbose=verbose)
+        if verbose:
+            console.info("Initialized controller")
         
         # Create project
+        if verbose:
+            console.info("Creating project...")
         controller.create_project(project_path, from_project, author_list, force)
         
         # Show success message
@@ -96,6 +116,9 @@ def init(
                       f"Project path: {controller.project.info.project_dir}",
                       title="BPM Init",
                       style="info")
+        
+        if verbose:
+            console.info("Project initialization completed successfully")
         
     except ControllerError as e:
         console.error(str(e))

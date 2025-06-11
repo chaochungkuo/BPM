@@ -26,5 +26,5 @@ touch demo/250101_Name1_Name2_Institute_Application/bclconvert/fastq/test.fastq.
 touch demo/250101_Name1_Name2_Institute_Application/bclconvert/fastq/test2.fastq.gz
 touch demo/250101_Name1_Name2_Institute_Application/bclconvert/multiqc_report.html
 bpm update --help
-bpm update --template demultiplexing:bclconvert --project demo/250101_Name1_Name2_Institute_Application/project.yaml --verbose
+bpm update --template demultiplexing:bclconvert --project demo/250101_Name1_Name2_Institute_Application/project.yaml
 

@@ -3,15 +3,10 @@
 This module provides the command-line interface for managing BPM repositories.
 """
 
-import os
 from pathlib import Path
 import typer
 from typing import Optional
 
-from rich.console import Console
-from rich.table import Table
-
-from ..core.controller import Controller
 from ..utils.ui.console import BPMConsole
 from ..utils.path import path
 from ..core.repo import CacheManager, RepositoryError
@@ -34,22 +29,52 @@ repo_app = typer.Typer(
     rich_markup_mode="rich"
 )
 
-def add_repo(source: Path) -> None:
+def add_repo(
+    source: Path,
+    verbose: bool = typer.Option(
+        False,
+        "--verbose",
+        "-v",
+        help="Show detailed logging information"
+    )
+) -> None:
     """Add a repository to the cache.
     
     Args:
         source: Path to repository directory
+        verbose: Show detailed logging information
         
     The repository must contain a valid repo.yaml file with required metadata.
     """
     try:
+        if verbose:
+            console.info(f"Adding repository from {source}")
+            
         cache_manager.add_repository(source)
+        
+        if verbose:
+            console.info("Repository added successfully")
+            
     except RepositoryError as e:
         console.error(str(e))
         raise typer.Exit(1)
 
-def list_repos() -> None:
-    """List all cached repositories."""
+def list_repos(
+    verbose: bool = typer.Option(
+        False,
+        "--verbose",
+        "-v",
+        help="Show detailed logging information"
+    )
+) -> None:
+    """List all cached repositories.
+    
+    Args:
+        verbose: Show detailed logging information
+    """
+    if verbose:
+        console.info("Listing cached repositories")
+        
     repos = cache_manager.list_repositories()
     
     if not repos:
@@ -63,13 +88,28 @@ def list_repos() -> None:
             console.print(f"  * {name} (active)")
         else:
             console.print(f"  - {name}")
+            
+    if verbose:
+        console.info(f"Found {len(repos)} repositories")
 
-def repo_info(name: str) -> None:
+def repo_info(
+    name: str,
+    verbose: bool = typer.Option(
+        False,
+        "--verbose",
+        "-v",
+        help="Show detailed logging information"
+    )
+) -> None:
     """Show detailed information about a repository.
     
     Args:
         name: Name of repository to show info for
+        verbose: Show detailed logging information
     """
+    if verbose:
+        console.info(f"Getting information for repository: {name}")
+        
     repos = cache_manager.list_repositories()
     
     if name not in repos:
@@ -111,39 +151,83 @@ def repo_info(name: str) -> None:
     # Location
     console.print("\n[bold]Location[/bold]")
     console.print(f"Path: {info['path']}")
+    
+    if verbose:
+        console.info("Repository information displayed successfully")
 
-def select_repo(name: str) -> None:
+def select_repo(
+    name: str,
+    verbose: bool = typer.Option(
+        False,
+        "--verbose",
+        "-v",
+        help="Show detailed logging information"
+    )
+) -> None:
     """Select a repository as active.
     
     Args:
         name: Name of repository to select
+        verbose: Show detailed logging information
     """
     try:
+        if verbose:
+            console.info(f"Selecting repository: {name}")
+            
         cache_manager.select_repository(name)
         console.success(f"Selected repository: {name}")
+        
+        if verbose:
+            console.info("Repository selection completed")
+            
     except RepositoryError as e:
         console.error(str(e))
         raise typer.Exit(1)
 
-def remove_repo(name: str) -> None:
+def remove_repo(
+    name: str,
+    verbose: bool = typer.Option(
+        False,
+        "--verbose",
+        "-v",
+        help="Show detailed logging information"
+    )
+) -> None:
     """Remove a repository from the cache.
     
     Args:
         name: Name of repository to remove
+        verbose: Show detailed logging information
     """
     try:
+        if verbose:
+            console.info(f"Removing repository: {name}")
+            
         cache_manager.remove_repository(name)
         console.success(f"Removed repository: {name}")
+        
+        if verbose:
+            console.info("Repository removal completed")
+            
     except RepositoryError as e:
         console.error(str(e))
         raise typer.Exit(1)
 
-def update_repo(name: Optional[str] = None) -> None:
+def update_repo(
+    name: Optional[str] = None,
+    verbose: bool = typer.Option(
+        False,
+        "--verbose",
+        "-v",
+        help="Show detailed logging information"
+    )
+) -> None:
     """Update a repository from its source.
     
     Args:
         name: Optional name of repository to update. If not provided,
              updates the active repository.
+        verbose: Show detailed logging information
     """
     try:
         if name is None:
@@ -152,8 +236,15 @@ def update_repo(name: Optional[str] = None) -> None:
                 console.error("No active repository")
                 raise typer.Exit(1)
                 
+        if verbose:
+            console.info(f"Updating repository: {name}")
+            
         cache_manager.update_repository(name)
         console.success(f"Updated repository: {name}")
+        
+        if verbose:
+            console.info("Repository update completed")
+            
     except RepositoryError as e:
         console.error(str(e))
         raise typer.Exit(1)
