@@ -16,6 +16,9 @@ from ..utils.path import path
 from rich.traceback import install
 install(show_locals=True)
 from ruamel.yaml import YAML
+import tempfile
+import subprocess
+
 yaml = YAML()
 yaml.default_flow_style = False
 yaml.indent(sequence=4, offset=2)
@@ -170,7 +173,7 @@ class CacheManager:
         except Exception as e:
             raise RepositoryError(f"Error validating repo.yaml: {e}")
     
-    def add_repository(self, source: Path) -> None:
+    def add_repository(self, source: str) -> None:
         """Add a repository to the cache.
         
         Args:
@@ -187,61 +190,66 @@ class CacheManager:
             The repository may be automatically selected as active if it was
             previously active or if it's the first repository.
         """
-        # Validate repository
-        repo_yaml = source / "repo.yaml"
-        if not repo_yaml.exists():
-            raise RepositoryError(f"Repository must contain repo.yaml: {source}")
+        def resolve_repo_path(source, tmpdir=None):
+            if source.startswith("http"):
+                if tmpdir is None:
+                    raise ValueError("Must provide a writable temp directory")
+                subprocess.run(["git", "clone", source, tmpdir], check=True)
+                return Path(tmpdir)
+            else:
+                return Path(source)
+        # repo_name = source.split("/")[-1].replace(".git", "")
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo_path = resolve_repo_path(source, tmpdir)
+            with open(repo_path /"repo.yaml", 'r') as f:
+                metadata = yaml.load(f)
             
-        # Load repository metadata
-        with open(repo_yaml) as f:
-            metadata = yaml.load(f)
+            # Validate required fields
+            required_fields = ["name", "version", "description", "maintainer", "institution", "license"]
+            for field in required_fields:
+                if field not in metadata:
+                    raise RepositoryError(f"Repository metadata missing required field: {field}")
+                    
+            name = metadata["name"]
             
-        # Validate required fields
-        required_fields = ["name", "version", "description", "maintainer", "institution", "license"]
-        for field in required_fields:
-            if field not in metadata:
-                raise RepositoryError(f"Repository metadata missing required field: {field}")
-                
-        name = metadata["name"]
-        
-        # Check if repository already exists
-        cache = self._load_cache()
-        was_active = cache["active_repo"] == name
-        if name in cache["repositories"]:
-            if self.verbose:
-                console.info(f"Repository '{name}' already exists, removing old version")
-            # Remove repository directory
-            repo_dir = Path(cache["repositories"][name]["path"])
-            if repo_dir.exists():
-                shutil.rmtree(repo_dir)
-        
-        # Create repository directory
-        repo_dir = self.repos_dir / name
-        repo_dir.mkdir(exist_ok=True)
-        
-        # Copy repository contents
-        shutil.copytree(source, repo_dir, dirs_exist_ok=True)
-        
-        # Validate repository structure
-        self._validate_repository(repo_dir)
-        
-        # Update cache with flattened metadata
-        cache["repositories"][name] = {
-            "path": str(repo_dir),
-            **metadata  # Spread metadata fields at top level
-        }
-        
-        # Handle active repository
-        if was_active or len(cache["repositories"]) == 1:
-            cache["active_repo"] = name
-            if self.verbose:
-                if was_active:
-                    console.info(f"Repository '{name}' automatically selected as active (was previously active)")
-                else:
-                    console.info(f"Repository '{name}' automatically selected as active (first repository)")
-        
-        self._save_cache(cache)
-        console.success(f"Repository '{name}' added successfully")
+            # Check if repository already exists
+            cache = self._load_cache()
+            was_active = cache["active_repo"] == name
+            if name in cache["repositories"]:
+                if self.verbose:
+                    console.info(f"Repository '{name}' already exists, removing old version")
+                # Remove repository directory
+                repo_dir = Path(cache["repositories"][name]["path"])
+                if repo_dir.exists():
+                    shutil.rmtree(repo_dir)
+            
+            # Create repository directory
+            repo_dir = self.repos_dir / name
+            repo_dir.mkdir(exist_ok=True)
+            
+            # Copy repository contents
+            shutil.copytree(repo_path, repo_dir, dirs_exist_ok=True)
+            
+            # Validate repository structure
+            self._validate_repository(repo_dir)
+            
+            # Update cache with flattened metadata
+            cache["repositories"][name] = {
+                "path": str(repo_dir),
+                **metadata  # Spread metadata fields at top level
+            }
+            
+            # Handle active repository
+            if was_active or len(cache["repositories"]) == 1:
+                cache["active_repo"] = name
+                if self.verbose:
+                    if was_active:
+                        console.info(f"Repository '{name}' automatically selected as active (was previously active)")
+                    else:
+                        console.info(f"Repository '{name}' automatically selected as active (first repository)")
+            
+            self._save_cache(cache)
+            console.success(f"Repository '{name}' added successfully")
     
     def remove_repository(self, name: str) -> None:
         """Remove a repository from the cache.

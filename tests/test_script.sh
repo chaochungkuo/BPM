@@ -5,7 +5,7 @@ export BPM_CACHE="/Users/ckuo/Desktop/bpm_cache"
 # repo
 bpm repo --help
 bpm repo remove-repo UKA_IZKF_GF_repo
-bpm repo add-repo /Users/ckuo/Desktop/BPM_repo
+bpm repo add-repo https://github.com/IZKF-Genomics/BPM_repo
 bpm repo list-repos
 bpm repo repo-info UKA_IZKF_GF_repo
 

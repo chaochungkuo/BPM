@@ -30,7 +30,7 @@ repo_app = typer.Typer(
 )
 
 def add_repo(
-    source: Path,
+    source: str,
     verbose: bool = typer.Option(
         False,
         "--verbose",
