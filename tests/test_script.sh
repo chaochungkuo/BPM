@@ -28,3 +28,5 @@ touch demo/250101_Name1_Name2_Institute_Application/bclconvert/multiqc_report.ht
 bpm update --help
 bpm update --template demultiplexing:bclconvert --project demo/250101_Name1_Name2_Institute_Application/project.yaml
 
+bpm generate nfcore:rnaseq --help
+bpm generate nfcore:rnaseq --project demo/250101_Name1_Name2_Institute_Application/project.yaml

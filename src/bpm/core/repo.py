@@ -388,11 +388,13 @@ class CacheManager:
         templates = []
         cache = self._load_cache()
         template_path = Path(cache["repositories"][repo_name]["path"]) / "templates"
+        console.print(f"Template path: {template_path}")
         for section in template_path.iterdir():
             section_name = section.name
-            
+            console.print(f"Section: {section_name}")
             for template in section.iterdir():
                 template_config_path = template / "template_config.yaml"
+                console.print(f"Template config path: {template_config_path}")
                 if template_config_path.exists():
                     template_name = template.name
                     templates.append(f"{section_name}:{template_name}")

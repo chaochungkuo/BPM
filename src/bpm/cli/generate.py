@@ -103,10 +103,12 @@ def make_generate_command(template_name: str,
     return dynamic_generate
 
 def register_generate_commands():
+    
     try:
         controller = Controller()
-        for template in controller.cache_manager.list_templates():
-            console.print(f"Registering template: {template}")
+        template_list = controller.cache_manager.list_templates()
+        for template in template_list:
+            # console.print(f"Registering template: {template}")
             temp_desc, opts = get_template_options(template)
             cmd = make_generate_command(template, temp_desc, opts)
             generate_app.command(name=template)(cmd)
