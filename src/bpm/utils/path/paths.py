@@ -10,6 +10,9 @@ This module provides path-related utilities for BPM, including:
 import os
 from pathlib import Path
 from typing import Union, Dict, Optional
+from ..ui.console import BPMConsole
+
+console = BPMConsole()
 
 class HostPathSolver:
     """Solver for host-aware paths.
@@ -39,7 +42,7 @@ class HostPathSolver:
         """
         self.host_mappings = host_mappings
 
-    def to_host_path(self, path: Union[str, Path]) -> str:
+    def from_path_to_hostpath(self, path: Path) -> str:
         """Convert a path to host:path format.
         
         Args:
@@ -48,20 +51,24 @@ class HostPathSolver:
         Returns:
             Path in format host:path or original path if no host match
         """
-        path = str(path)
+        if path.exists():
+            # Try to match against host mappings
+            for host, mount_point in self.host_mappings.items():
+                if mount_point:
+                    mount_point = str(mount_point)
+                    if str(path).startswith(mount_point):
+                        # Remove mount point and return host:path format
+                        relative_path = str(path)[len(mount_point):]
+                        return f"{host}:{relative_path}"
+                elif mount_point == "":
+                    return f"{host}:{str(path)}"
         
-        # Try to match against host mappings
-        for host, mount_point in self.host_mappings.items():
-            mount_point = str(mount_point)
-            if path.startswith(mount_point):
-                # Remove mount point and return host:path format
-                relative_path = path[len(mount_point):]
-                return f"{host}:{relative_path}"
-                
-        # No host match, return original path
-        return path
+        else:
+            console.warning(f"Path does not exist: {path}")
+            # No host match, return original path
+            return str(path)
 
-    def from_host_path(self, host_path: str|Path) -> str:
+    def from_hostpath_to_path(self, host_path: str|Path) -> str:
         """Convert from host:path format to full path.
         
         Args:
@@ -74,16 +81,30 @@ class HostPathSolver:
             ValueError: If host is not found in mappings
         """
         if isinstance(host_path, Path):
-            host_path = str(host_path.absolute())
-        if ":" not in host_path:
-            return host_path
-            
-        host, path = host_path.split(":", 1)
-        if host not in self.host_mappings:
-            raise ValueError(f"Unknown host: {host}")
-            
-        mount_point = self.host_mappings[host]
-        return mount_point+ "/" + path.lstrip("/")
+            host_path = host_path.absolute()
+            if host_path.exists():
+                return host_path
+            else:
+                # console.warning(f"Path does not exist: {host_path}")
+                return host_path
+        elif isinstance(host_path, str) and ":" not in host_path:
+            # skip if host_path is a string and does not contain ":"
+            absolute_path = Path(host_path).absolute()
+            if absolute_path.exists():
+                return absolute_path
+            else:
+                return host_path
+        else:
+            # host_path is a string in format host:path
+            host, path = host_path.split(":", 1)
+            if host not in self.host_mappings:
+                raise ValueError(f"Unknown host: {host}")
+                
+            mount_point = self.host_mappings[host]
+            if mount_point:
+                return Path(mount_point+ "/" + path.lstrip("/"))
+            else:
+                return Path(path)
 
     def get_host_mappings(self) -> Dict[str, str]:
         """Get current host mappings.

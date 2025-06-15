@@ -4,6 +4,7 @@ import typer
 import inspect
 import yaml
 from pathlib import Path
+from ..utils.path.paths import host_solver
 from typing import Dict, Any, Callable
 from ..core.controller import Controller
 from ..utils.ui.console import BPMConsole
@@ -47,15 +48,24 @@ def make_generate_command(template_name: str,
         verbose = kwargs.pop("verbose", False)
         controller = Controller(verbose=verbose)
         project_path = kwargs.pop("project", None)
+        output_path = kwargs.pop("output", None)
 
         if project_path:
-            project_path = Path(project_path).resolve()
+            project_path = host_solver.from_hostpath_to_path(project_path)
             console.print(f"[bold green]Project file:[/] {project_path}")
             controller.load_project(project_path)
 
-        params = {"template": template_name, "project": project_path, **kwargs}
+        if output_path:
+            output_path = host_solver.from_hostpath_to_path(output_path)
+            console.print(f"[bold green]Output directory:[/] {output_path}")
+
+        params = {"template": template_name,
+                  "project": project_path,
+                  "output": output_path,
+                  **kwargs}
         controller.collect_contexts(params=params)
-        controller.load_template(template_name=template_name)
+        controller.generate_template(template_name=template_name,
+                                     output_dir=output_path)
 
     # Create dynamic function signature
     parameters = [
@@ -66,9 +76,20 @@ def make_generate_command(template_name: str,
                 None,
                 "--project",
                 "-p",
-                help="Path to project.yaml. If not specified, will generate a new project in the output directory defined by --output-dir."
+                help="Path to project.yaml. If not specified, will generate a new project in the output directory defined by --output."
             ),
             annotation=Path,
+        ),
+        inspect.Parameter(
+            "output",
+            kind=inspect.Parameter.KEYWORD_ONLY,
+            default=typer.Option(
+                None,
+                "--output",
+                "-o",
+                help="Output directory path. If --project is specified, the output directory will be under the project directory."
+            ),
+            annotation=str,
         ),
         inspect.Parameter(
             "verbose",

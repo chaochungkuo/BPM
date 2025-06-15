@@ -239,7 +239,7 @@ class Project():
         if isinstance(data, str):
             # Check if string is a host path
             try:
-                return host_solver.from_host_path(data)
+                return host_solver.from_hostpath_to_path(data)
             except ValueError:
                 return data
         elif isinstance(data, dict):
@@ -338,13 +338,15 @@ class Project():
         if isinstance(obj, BaseModel):
             return self._convert_to_serializable(obj.model_dump())
         if isinstance(obj, Path):
-            host_aware_path = host_solver.to_host_path(obj)
+            host_aware_path = host_solver.from_path_to_hostpath(obj)
             return host_aware_path
         if isinstance(obj, str):
+            if obj == "":
+                return ""
             try:
-                path = Path(obj).exists()
-                host_aware_path = host_solver.to_host_path(obj)
-                return host_aware_path
+                if Path(obj).exists():
+                    host_aware_path = host_solver.from_path_to_hostpath(Path(obj))
+                    return host_aware_path
             except ValueError:
                 return obj
         if isinstance(obj, datetime):
@@ -367,10 +369,9 @@ class Project():
         Args:
             cmd: Optional command string to record in history
         """
+        self.info.project_dir.mkdir(parents=True, exist_ok=True)
         # Convert to dictionary
         project_dict = self._serialize_to_dict()
-        # Ensure project directory exists
-        self.info.project_dir.mkdir(parents=True, exist_ok=True)
         self.add_history()
         with open(self.info.project_dir / "project.yaml", "w") as f:
             yaml.dump(project_dict, f)

@@ -67,7 +67,7 @@ host_paths:
 BPM provides host-aware path resolution:
 
 ```python
-from bpm.util.paths import path, to_host_path, from_host_path
+from bpm.util.paths import path, from_path_to_hostpath, from_hostpath_to_path
 
 # Get host mappings from config
 host_mappings = {
@@ -77,11 +77,11 @@ host_mappings = {
 
 # Convert to host:path format
 physical_path = "/mnt/nextgen/data/sample1.txt"
-host_path = to_host_path(physical_path, host_mappings)
+host_path = from_path_to_hostpath(physical_path, host_mappings)
 # Returns: "nextgen:data/sample1.txt"
 
 # Convert from host:path format
-full_path = from_host_path("nextgen:data/sample1.txt", host_mappings)
+full_path = from_hostpath_to_path("nextgen:data/sample1.txt", host_mappings)
 # Returns: Path("/mnt/nextgen/data/sample1.txt")
 
 # Basic path resolution

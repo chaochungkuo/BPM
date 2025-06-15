@@ -108,22 +108,22 @@ class Controller:
             if isinstance(value, Path):
                 value = str(value)
             return value
-        
-        # If key doesn't contain dots, search all levels
-        def search_dict(d: dict, target_key: str) -> Any:
-            if target_key in d:
-                return d[target_key]
+        else:
+            # If key doesn't contain dots, search all levels
+            def search_dict(d: dict, target_key: str) -> Any:
+                if target_key in d:
+                    return d[target_key]
+                
+                for value in d.values():
+                    if isinstance(value, dict):
+                        try:
+                            return search_dict(value, target_key)
+                        except ControllerError:
+                            continue
+                
+                raise ControllerError(f"Key '{target_key}' not found in context")
             
-            for value in d.values():
-                if isinstance(value, dict):
-                    try:
-                        return search_dict(value, target_key)
-                    except ControllerError:
-                        continue
-            
-            raise ControllerError(f"Key '{target_key}' not found in context")
-        
-        return search_dict(self.context, key_path)
+            return search_dict(self.context, key_path)
 
     def collect_contexts(self, params: dict[str, Any]) -> None:
         """Collect context from all providers and add to context.
@@ -164,26 +164,26 @@ class Controller:
                 "repo_config": config_context,
             }
         self.context = context
+        # pprint(self.context)
         if self.verbose:
             console.info("All contexts merged successfully")
 
-    def load_template(self, template_name: str,) -> None:
+    def generate_template(self, template_name: str, output_dir: Path) -> None:
         """Load a template.
         
         Args:
             template_name: Name of template to load
-            
+            output_dir: Output directory path
         Raises:
             ControllerError: If template loading fails
         """
         template_path = self.cache_manager.get_template_path(template_name)
-        console.print(f"Template path: {template_path}")
         self.template = Template(template_path,
                                  config_loader=self.config_loader,
                                  verbose=self.verbose)
         self.process_template_inputs()
         self.check_template_required_tools()
-        self.render_template()
+        self.render_template(output_dir=output_dir)
         self.insert_temp_to_project()
         self.project.save_to_file()
 
@@ -252,8 +252,8 @@ class Controller:
 
             # Resolve the input value
             if input_config.type == "path" and self.template_inputs[input_name] is not None:
-                self.template_inputs[input_name] = \
-                    host_solver.from_host_path(self.template_inputs[input_name])
+                # self.template_inputs[input_name] = \
+                #     host_solver.from_hostpath_to_path(self.template_inputs[input_name])
                 if self.verbose:
                     console.info(f"Resolved path for '{input_name}'")
             if input_config.type == "list" and self.template_inputs[input_name] is not None:
@@ -309,7 +309,7 @@ class Controller:
             console.info(f"Resolver function: {resolver_function}")
         return resolver_function(flatten_dict(self.context))
 
-    def render_template(self) -> None:
+    def render_template(self, output_dir: Path) -> None:
         """Render the current template.
         
         This method renders the template with the current context and saves the
@@ -320,12 +320,25 @@ class Controller:
         """
         if not self.template:
             raise ControllerError("No template loaded")
-        
+        if self.project:
+            if self.template.config.structure == StructureType.SUBSECTION:
+                render_target = self.project.info.project_dir / \
+                    self.template.config.section / self.template.config.name
+            else:
+                render_target = self.project.info.project_dir / \
+                    self.template.config.name
+        elif not output_dir:
+            console.error(f"Both --output and --project are not defined.")
+            sys.exit(1)
         # Get template context
         render_context = self.template_inputs
         render_context.update(self.context)
+        console.print(f"Render context: {render_context}")
         # Render template
-        self.template.render(context=render_context)
+        self.template.render(context=render_context,
+                             output_dir=render_target)
+        if self.verbose:
+            console.info(f"Rendered template to: {render_target}")
 
     def insert_temp_to_project(self) -> None:
         """Insert the rendered template into the project.
@@ -376,6 +389,7 @@ class Controller:
                     raise ControllerError("Project creation cancelled by user")
             
             # Create project
+            console.info(f"Creating project at {project_path}")
             self.project = Project(project_dir=project_path,
                                    config_loader=self.config_loader)
             if from_project:
@@ -447,7 +461,7 @@ class Controller:
         """
         self.collect_contexts(params={})
         template_path = self.cache_manager.get_template_path(template_name)
-        console.print(f"Template path: {template_path}")
+        # console.print(f"Template path: {template_path}")
         self.template = Template(template_path,
                                  config_loader=self.config_loader,
                                  verbose=self.verbose)

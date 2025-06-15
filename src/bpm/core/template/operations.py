@@ -183,12 +183,12 @@ class Template():
         if self.verbose:
             console.info("Template configuration saved successfully")
     
-    def render(self, context: dict[str, Any]) -> None:
+    def render(self, context: dict[str, Any], output_dir: Path) -> None:
         """Render all template files using Jinja2 and write to target_dir.
         
         Args:
             context: Dictionary containing template variables
-            
+            output_dir: Output directory path
         Raises:
             SystemExit: If output directory is not specified in context
         """
@@ -196,15 +196,11 @@ class Template():
             console.info("Starting template rendering process")
             console.info(f"Template directory: {self.template_dir}")
             console.info(f"Context keys: {list(context.keys())}")
-            
+            console.info(f"Output directory: {output_dir}")
+        if not output_dir.exists():
+            output_dir.mkdir(parents=True, exist_ok=True)
         template_root = self.template_dir 
-        if "output_dir" in context:
-            target_dir = context["output_dir"]
-            if self.verbose:
-                console.info(f"Output directory: {target_dir}")
-        else:
-            console.error("Output directory 'output_dir' not found in context")
-            sys.exit(1)
+        # console.print(context)
             
         env = Environment(
             loader=FileSystemLoader(str(template_root)),
@@ -224,7 +220,8 @@ class Template():
                 continue
 
             rel_path = file_path.relative_to(template_root)
-            out_path = target_dir / rel_path
+            out_path = output_dir / rel_path
+            console.info(f"Output path: {out_path}")
             out_path.parent.mkdir(parents=True, exist_ok=True)
             
             if self.verbose:
