@@ -1,126 +1,104 @@
-# BPM (Benomic Project Manager)
+# BPM (Bioinformatics Project Manager)
 
-## Prerequisites
+A flexible, template-driven CLI tool for managing bioinformatics projects.
 
-Before using BPM, you must add the BPM repository to your environment. The repository contains essential configurations and templates.
+## Features
 
-### Adding BPM Repository
+- **Project Management**: Create and manage bioinformatics projects with standardized naming
+- **Template System**: Generate project files from customizable templates
+- **Workflow Execution**: Run predefined bioinformatics workflows
+- **Repository Management**: Manage template and workflow repositories
+- **Host-Aware Paths**: Cross-platform path resolution with host mapping
 
-1. Clone the BPM repository:
+## Installation
+
 ```bash
-git clone https://github.com/your-org/BPM_repo.git
+pip install bpm
 ```
 
-2. Add the repository to BPM:
+In order to configure BPM cache folder, it is necessary to set the environment variable `BPM_CACHE` where you want to save cache files. If not specified, it will be set as `$HOME/.cache/bpm`. This variable needs to be always available by BPM and should be set in the `.bashrc`.
+
 ```bash
-bpm add-repo /path/to/BPM_repo
+export BPM_CACHE="/path/to/bpm_cache"
 ```
 
-## Configuration
+## Quick Start
 
-### Host Path Configuration
-
-BPM requires host path mappings to be configured in your environment. These mappings are stored in the cached environment configuration under `host_paths`. Example:
-
-```yaml
-host_paths:
-  nextgen1: "/mnt/nextgen/"
-  nextgen2: "/mnt/nextgen2/"
-  nextgen3: "/mnt/nextgen3/"
-  archive: "/mnt/nextgen2/archive/"
+1. Initialize a new project:
+```bash
+bpm init 230101_ProjectName_Institute_Application
 ```
 
-### Environment Configuration
-
-The environment configuration file (`environment.yaml`) should be present in your BPM repository with the following structure:
-
-```yaml
-# System Resources
-system:
-  percentage_of_cores: 0.9
-  max_memory_gb: 32
-
-# Tool Paths
-tool_paths:
-  bclconvert: bcl-convert
-  bcl2fastq: bcl2fastq
-  cellranger: cellranger
-  # ... other tools
-
-# Reference Data
-reference_data:
-  cellranger:
-    base: /data/shared/10xGenomics/
-    # ... other references
-
-# Host Paths
-host_paths:
-  nextgen1: "/mnt/nextgen/"
-  nextgen2: "/mnt/nextgen2/"
-  # ... other hosts
+2. Add a repository:
+```bash
+bpm repo add /path/to/repository
 ```
 
-## Usage
-
-### Path Resolution
-
-BPM provides host-aware path resolution:
-
-```python
-from bpm.util.paths import path, from_path_to_hostpath, from_hostpath_to_path
-
-# Get host mappings from config
-host_mappings = {
-    "nextgen": "/mnt/nextgen/",
-    "nextgen2": "/mnt/nextgen2/"
-}
-
-# Convert to host:path format
-physical_path = "/mnt/nextgen/data/sample1.txt"
-host_path = from_path_to_hostpath(physical_path, host_mappings)
-# Returns: "nextgen:data/sample1.txt"
-
-# Convert from host:path format
-full_path = from_hostpath_to_path("nextgen:data/sample1.txt", host_mappings)
-# Returns: Path("/mnt/nextgen/data/sample1.txt")
-
-# Basic path resolution
-resolved_path = path.resolve("data/sample1.txt")
+3. Generate files from a template:
+```bash
+bpm generate template_name --project project.yaml
 ```
 
-### Error Handling
+4. Run a workflow:
+```bash
+bpm run workflow_name --project project.yaml
+```
 
-If you encounter errors related to host mappings, ensure:
-1. BPM repository is added and cached
-2. Environment configuration contains valid `host_paths`
-3. Current hostname is listed in the mappings
+## Commands
 
-Common errors:
-```python
-# No configuration available
-"No host mappings available. Please ensure environment configuration is cached or provide a valid configuration file."
+### Project Management
 
-# Missing cache
-"No environment configuration found in cache"
+```bash
+# Initialize a new project
+bpm init 230101_ProjectName_Institute_Application
 
-# Missing host_paths
-"No host_paths found in environment configuration"
+# Show project information
+bpm info --project project.yaml
+
+# Update template outputs
+bpm update --template section:name --project project.yaml
+```
+
+### Repository Management
+
+```bash
+# Add a repository
+bpm repo add /path/to/repository
+
+# List repositories
+bpm repo list
+
+# Select active repository
+bpm repo select repository_name
+
+# Update repository
+bpm repo update
+```
+
+### Template and Workflow Management
+
+```bash
+# Generate files from template
+bpm generate template_name --project project.yaml
+
+# Run a workflow
+bpm run workflow_name --project project.yaml
 ```
 
 ## Development
 
-### Adding New Hosts
+### Adding New Templates
 
-To add a new host:
-1. Update `environment.yaml` in your BPM repository
-2. Add the host mapping under `host_paths`
-3. Re-cache the environment configuration
 
-### Custom Configuration
+### Adding New Workflows
 
-You can provide a custom host mappings file:
-```python
-from bpm.util.paths import HostAwarePath
 
-custom_path = HostAwarePath(config_path="custom_hosts.yaml")
-```
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Submit a pull request
+
+## License
+
+MIT License
