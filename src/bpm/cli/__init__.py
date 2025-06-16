@@ -1,8 +1,8 @@
 from .init import init
 from .generate import generate_app
 from .info import info
-from .run import run
 from .repo import app as repo_app
 from .update import update
+from .run import run_app
 
-__all__ = ["init", "generate", "info", "run", "repo_app", "update"] 
+__all__ = ["init", "generate_app", "info", "repo_app", "update", "run_app"] 

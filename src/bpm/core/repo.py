@@ -408,6 +408,47 @@ class CacheManager:
                     templates.append(f"{section_name}:{template_name}")
         return templates
     
+    def get_workflow_path(self, workflow_name: str) -> Optional[Path]:
+        """Get the path to a workflow.
+        
+        Args:
+            workflow_name: Workflow name.
+            
+        Returns:    
+            Optional[Path]: Path to workflow directory or None if workflow not found
+        """
+        repo_name = self.get_active_repository()
+        if not repo_name:
+            return None
+        cache = self._load_cache()
+        if repo_name not in cache["repositories"]:
+            raise ValueError(f"Repository '{repo_name}' not found")
+        workflow_path = Path(cache["repositories"][repo_name]["path"]) / "workflows" / workflow_name
+        if not workflow_path.exists():
+            raise ValueError(f"Workflow '{workflow_name}' not found in repository '{repo_name}'")
+        return workflow_path
+    
+    def list_workflows(self) -> List[str]:
+        """List all available workflows.
+        
+        Returns:
+            List[str]: List of workflow names
+        """
+        repo_name = self.get_active_repository()
+        if not repo_name:
+            return []
+        workflows = []
+        cache = self._load_cache()
+        workflow_path = Path(cache["repositories"][repo_name]["path"]) / "workflows"
+        console.print(f"Workflow path: {workflow_path}")
+        for workflow in workflow_path.iterdir():
+            workflow_config_path = workflow / "workflow_config.yaml"
+            console.print(f"Workflow config path: {workflow_config_path}")
+            if workflow_config_path.exists():
+                workflow_name = workflow.name
+                workflows.append(f"{workflow_name}")
+        return workflows
+    
     def get_resolvers(self, repo_name: Optional[str] = None) -> Optional[Path]:
         """Get the path to repository input resolvers.
         

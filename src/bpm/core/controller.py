@@ -305,8 +305,6 @@ class Controller:
         # Import the module using just the filename without extension
         resolver_module = importlib.import_module(resolver)
         resolver_function = getattr(resolver_module, resolver)
-        if self.verbose:
-            console.info(f"Resolver function: {resolver_function}")
         return resolver_function(flatten_dict(self.context))
 
     def render_template(self, output_dir: Path) -> None:

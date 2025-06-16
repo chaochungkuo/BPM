@@ -3,12 +3,12 @@ bpm --help
 export BPM_CACHE="/Users/ckuo/Desktop/bpm_cache"
 
 # repo
-# bpm repo --help
-# bpm repo remove-repo UKA_IZKF_GF_repo
-# bpm repo add-repo https://github.com/IZKF-Genomics/BPM_repo
-# bpm repo add-repo /Users/ckuo/Desktop/BPM_repo
-# bpm repo list-repos
-# bpm repo repo-info UKA_IZKF_GF_repo
+bpm repo --help
+bpm repo remove-repo UKA_IZKF_GF_repo
+bpm repo add-repo https://github.com/IZKF-Genomics/BPM_repo
+bpm repo add-repo /Users/ckuo/Desktop/BPM_repo
+bpm repo list-repos
+bpm repo repo-info UKA_IZKF_GF_repo
 
 rm -rf demo/*
 # init
@@ -32,3 +32,5 @@ bpm update --template demultiplexing:bclconvert --project demo/250101_Name1_Name
 
 # bpm generate nfcore:rnaseq --help
 # bpm generate nfcore:rnaseq --project demo/250101_Name1_Name2_Institute_Application/project.yaml --verbose
+
+bpm run generate_nfcore_rnaseq_samplesheet --help
