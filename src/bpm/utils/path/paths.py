@@ -68,7 +68,7 @@ class HostPathSolver:
             # No host match, return original path
             return str(path)
 
-    def from_hostpath_to_path(self, host_path: str|Path) -> str:
+    def from_hostpath_to_path(self, host_path: str) -> Path:
         """Convert from host:path format to full path.
         
         Args:
@@ -80,20 +80,21 @@ class HostPathSolver:
         Raises:
             ValueError: If host is not found in mappings
         """
-        if isinstance(host_path, Path):
-            host_path = host_path.absolute()
-            if host_path.exists():
-                return host_path
-            else:
-                # console.warning(f"Path does not exist: {host_path}")
-                return host_path
-        elif isinstance(host_path, str) and ":" not in host_path:
+        # if isinstance(host_path, Path):
+        #     host_path = host_path.absolute()
+        #     if host_path.exists():
+        #         return host_path
+        #     else:
+        #         # console.warning(f"Path does not exist: {host_path}")
+        #         return host_path
+        if isinstance(host_path, str) and ":" not in host_path:
             # skip if host_path is a string and does not contain ":"
-            absolute_path = Path(host_path).absolute()
-            if absolute_path.exists():
-                return absolute_path
-            else:
-                return host_path
+            absolute_path = Path(host_path).resolve()
+            # print(f"Absolute path: {absolute_path}")
+            # if absolute_path.exists():
+            return absolute_path
+            # else:
+            #     return host_path
         else:
             # host_path is a string in format host:path
             host, path = host_path.split(":", 1)

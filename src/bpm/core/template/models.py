@@ -8,7 +8,8 @@ from enum import Enum
 from pathlib import Path
 from typing import Optional, List, Dict, Any, Union
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, validator
+from bpm.utils.path import host_solver
 
 
 class StructureType(str, Enum):
@@ -45,6 +46,24 @@ class TemplateInput(BaseModel):
     description: str | None = None
     default_resolver: str | None = None
 
+    @validator('default')
+    def convert_path_default(cls, v, values):
+        """Convert path default values using host_solver.
+        
+        Args:
+            v: The value to validate
+            values: Dictionary of other field values
+            
+        Returns:
+            Converted path if type is path, otherwise original value
+        """
+        if values.get('type') == InputType.PATH and v is not None:
+            try:
+                return host_solver.from_hostpath_to_path(v)
+            except ValueError:
+                return v
+        return v
+
 
 class TemplateOutput(BaseModel):
     """Template output field model.
@@ -60,6 +79,25 @@ class TemplateOutput(BaseModel):
     type: InputType
     description: str | None = None
     resolver: str | None = None
+    value: Any = None
+
+    @validator('value')
+    def convert_path_value(cls, v, values):
+        """Convert path values using host_solver.
+        
+        Args:
+            v: The value to validate
+            values: Dictionary of other field values
+            
+        Returns:
+            Converted path if type is path, otherwise original value
+        """
+        if values.get('type') == InputType.PATH and v is not None:
+            try:
+                return host_solver.from_hostpath_to_path(v)
+            except ValueError:
+                return v
+        return v
 
 
 class TemplateConfig(BaseModel):

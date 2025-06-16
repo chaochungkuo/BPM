@@ -237,11 +237,11 @@ class Project():
             Data with resolved paths
         """
         if isinstance(data, str):
-            # Check if string is a host path
-            try:
-                return host_solver.from_hostpath_to_path(data)
-            except ValueError:
-                return data
+            # # Check if string is a host path
+            # try:
+            #     return host_solver.from_hostpath_to_path(data)
+            # except ValueError:
+            return data
         elif isinstance(data, dict):
             return {k: self._resolve_host_paths(v) for k, v in data.items()}
         elif isinstance(data, list):

@@ -139,6 +139,8 @@ class Controller:
             project_context = self.project.export_as_dict()
             if self.verbose:
                 console.info("Project context collected")
+        else:
+            project_context = {}
         # Get config context
         if self.config_loader:
             config_context = self.config_loader.configs
@@ -168,7 +170,10 @@ class Controller:
         if self.verbose:
             console.info("All contexts merged successfully")
 
-    def generate_template(self, template_name: str, output_dir: Path) -> None:
+    def generate_template(self,
+                          template_name: str,
+                          output_dir: Path,
+                          force_output_dir: bool = False) -> None:
         """Load a template.
         
         Args:
@@ -183,7 +188,16 @@ class Controller:
                                  verbose=self.verbose)
         self.process_template_inputs()
         self.check_template_required_tools()
-        self.render_template(output_dir=output_dir)
+        
+        if self.project and not force_output_dir:
+            render_target = self.resolve_template_output_dir_with_project()
+        elif output_dir:
+            render_target = output_dir
+        else:
+            console.error(f"Both --output and --project are not defined.")
+            sys.exit(1)
+            
+        self.render_template(output_dir=render_target)
         self.insert_temp_to_project()
         self.project.save_to_file()
 
@@ -307,6 +321,16 @@ class Controller:
         resolver_function = getattr(resolver_module, resolver)
         return resolver_function(flatten_dict(self.context))
 
+    def resolve_template_output_dir_with_project(self) -> Path:
+        """Resolve the template output directory with the project."""
+        if self.template.config.structure == StructureType.SUBSECTION:
+            render_target = self.project.info.project_dir / \
+                self.template.config.section / self.template.config.name
+        else:
+            render_target = self.project.info.project_dir / \
+                self.template.config.name
+        return render_target
+
     def render_template(self, output_dir: Path) -> None:
         """Render the current template.
         
@@ -316,27 +340,15 @@ class Controller:
         Raises:
             ControllerError: If no template is loaded
         """
-        if not self.template:
-            raise ControllerError("No template loaded")
-        if self.project:
-            if self.template.config.structure == StructureType.SUBSECTION:
-                render_target = self.project.info.project_dir / \
-                    self.template.config.section / self.template.config.name
-            else:
-                render_target = self.project.info.project_dir / \
-                    self.template.config.name
-        elif not output_dir:
-            console.error(f"Both --output and --project are not defined.")
-            sys.exit(1)
         # Get template context
         render_context = self.template_inputs
         render_context.update(self.context)
         console.print(f"Render context: {render_context}")
         # Render template
         self.template.render(context=render_context,
-                             output_dir=render_target)
+                             output_dir=output_dir)
         if self.verbose:
-            console.info(f"Rendered template to: {render_target}")
+            console.info(f"Rendered template to: {output_dir}")
 
     def insert_temp_to_project(self) -> None:
         """Insert the rendered template into the project.
@@ -403,7 +415,6 @@ class Controller:
                 for person in authors:
                     person_info = self.config_loader.get_author_info(person)
                     self.project.add_author(person_info)
-            self.project.save_to_file()
             console.success(f"Created project at {project_path}")
         except Exception as e:
             raise ControllerError(f"Failed to create project: {e}")

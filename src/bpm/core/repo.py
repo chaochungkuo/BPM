@@ -396,13 +396,13 @@ class CacheManager:
         templates = []
         cache = self._load_cache()
         template_path = Path(cache["repositories"][repo_name]["path"]) / "templates"
-        console.print(f"Template path: {template_path}")
+        # console.print(f"Template path: {template_path}")
         for section in template_path.iterdir():
             section_name = section.name
-            console.print(f"Section: {section_name}")
+            # console.print(f"Section: {section_name}")
             for template in section.iterdir():
                 template_config_path = template / "template_config.yaml"
-                console.print(f"Template config path: {template_config_path}")
+                # console.print(f"Template config path: {template_config_path}")
                 if template_config_path.exists():
                     template_name = template.name
                     templates.append(f"{section_name}:{template_name}")
@@ -440,10 +440,10 @@ class CacheManager:
         workflows = []
         cache = self._load_cache()
         workflow_path = Path(cache["repositories"][repo_name]["path"]) / "workflows"
-        console.print(f"Workflow path: {workflow_path}")
+        # console.print(f"Workflow path: {workflow_path}")
         for workflow in workflow_path.iterdir():
             workflow_config_path = workflow / "workflow_config.yaml"
-            console.print(f"Workflow config path: {workflow_config_path}")
+            # console.print(f"Workflow config path: {workflow_config_path}")
             if workflow_config_path.exists():
                 workflow_name = workflow.name
                 workflows.append(f"{workflow_name}")

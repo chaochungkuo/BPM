@@ -109,7 +109,7 @@ def init(
         if verbose:
             console.info("Creating project...")
         controller.create_project(project_path, from_project, author_list, force)
-        
+        controller.project.save_to_file()
         # Show success message
         console.panel(message=
                       f"Initializing project: {controller.project.info.project_name}\n"

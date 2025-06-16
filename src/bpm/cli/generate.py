@@ -1,4 +1,5 @@
 # gpm/cli/generate.py
+import sys
 
 import typer
 import inspect
@@ -49,15 +50,25 @@ def make_generate_command(template_name: str,
         controller = Controller(verbose=verbose)
         project_path = kwargs.pop("project", None)
         output_path = kwargs.pop("output", None)
-
+        force_output_dir = False
+        
         if project_path:
-            project_path = host_solver.from_hostpath_to_path(project_path)
+            project_path = host_solver.from_hostpath_to_path(str(project_path))
             console.print(f"[bold green]Project file:[/] {project_path}")
             controller.load_project(project_path)
-
-        if output_path:
-            output_path = host_solver.from_hostpath_to_path(output_path)
-            console.print(f"[bold green]Output directory:[/] {output_path}")
+            if output_path:
+                console.info("Output directory is specified, but project file is specified. Ignoring output directory.")
+                output_path = None
+        else:
+            if output_path:
+                output_path = host_solver.from_hostpath_to_path(str(output_path))
+                console.print(f"[bold green]Output directory:[/] {output_path}")
+                controller.create_project(project_path=output_path)
+                console.print(f"[bold green]Create a new project in:[/] {output_path}")
+                force_output_dir = True
+            else:
+                console.error("Both project file and output directory are not specified. Please specify one of them.")
+                sys.exit(1)
 
         params = {"template": template_name,
                   "project": project_path,
@@ -65,7 +76,8 @@ def make_generate_command(template_name: str,
                   **kwargs}
         controller.collect_contexts(params=params)
         controller.generate_template(template_name=template_name,
-                                     output_dir=output_path)
+                                     output_dir=output_path,
+                                     force_output_dir=force_output_dir)
 
     # Create dynamic function signature
     parameters = [

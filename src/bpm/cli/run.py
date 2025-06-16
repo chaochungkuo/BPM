@@ -131,7 +131,7 @@ def register_run_commands():
     try:
         controller = Controller()
         workflow_list = controller.cache_manager.list_workflows()
-        console.print(f"Workflow list: {workflow_list}")
+        # console.print(f"Workflow list: {workflow_list}")
         for workflow in workflow_list:
             workflow_desc, opts = get_workflow_options(workflow)
             cmd = make_run_command(workflow, workflow_desc, opts)
