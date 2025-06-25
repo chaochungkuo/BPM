@@ -11,6 +11,10 @@ export BPM_CACHE="/Users/ckuo/Desktop/bpm_cache"
 # bpm repo repo-info UKA_IZKF_GF_repo
 
 rm -rf demo/*
+
+mkdir -p demo/250620_bcl_raw/
+bpm generate demultiplexing:bclconvert --bcl-path demo/250620_bcl_raw/ --output demo/fastq/
+
 # init
 bpm init --help
 bpm init -f demo/230101_test --authors ckuo,lgan
@@ -18,12 +22,12 @@ bpm init -f demo/250101_Name1_Name2_Institute_Application --from demo/230101_tes
 # rm -r demo/230101_test
 
 # generate
-bpm generate --help
-bpm generate demultiplexing:bclconvert --help
-mkdir -p demo/bcl/
-bpm generate demultiplexing:bclconvert --output demo/250612_NBTEST --bcl-path demo/bcl/
-bpm generate demultiplexing:bclconvert --project demo/250101_Name1_Name2_Institute_Application/project.yaml
-bpm generate demultiplexing:bclconvert --project demo/250101_Name1_Name2_Institute_Application/project.yaml --bcl-path demo/bcl/ --output demo/250101_Name1_Name2_Institute_Application/bclconvert
+# bpm generate --help
+# bpm generate demultiplexing:bclconvert --help
+
+# bpm generate demultiplexing:bclconvert --output demo/250612_NBTEST --bcl-path demo/250620_bcl_raw/
+# bpm generate demultiplexing:bclconvert --project demo/250101_Name1_Name2_Institute_Application/project.yaml
+bpm generate demultiplexing:bclconvert --project demo/250101_Name1_Name2_Institute_Application/project.yaml --bcl-path demo/250620_bcl_raw/
 # mkdir -p demo/250101_Name1_Name2_Institute_Application/bclconvert/fastq/
 # touch demo/250101_Name1_Name2_Institute_Application/bclconvert/fastq/test.fastq.gz
 # touch demo/250101_Name1_Name2_Institute_Application/bclconvert/fastq/test2.fastq.gz

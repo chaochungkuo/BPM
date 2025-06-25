@@ -237,11 +237,15 @@ class Project():
             Data with resolved paths
         """
         if isinstance(data, str):
-            # # Check if string is a host path
-            # try:
-            #     return host_solver.from_hostpath_to_path(data)
-            # except ValueError:
-            return data
+            # Check if string is a host path
+            if ":/" in data:
+                resolved_path = host_solver.from_hostpath_to_path(data)
+                if resolved_path.exists():
+                    return resolved_path
+                else:
+                    return data
+            else:
+                return data
         elif isinstance(data, dict):
             return {k: self._resolve_host_paths(v) for k, v in data.items()}
         elif isinstance(data, list):
@@ -270,16 +274,18 @@ class Project():
             # Resolve host paths in info data
             info_data = self._resolve_host_paths(data["info"])
             self.info = BasicInfo(**info_data)
-            
+            # self.info = BasicInfo(**data["info"])
+            # self.info.project_dir = host_solver.from_hostpath_to_path(self.info.project_dir)
+            console.print(f"[pink]Project info: [/]{self.info}")
         if "history" in data:
             self.history = []
             for entry in data["history"]:
                 self.history.append(entry)
             
         # Load sections and resolve host paths
-        for key, value in data.items():
-            if key not in ["info", "history"]:
-                self._sections[key] = self._resolve_host_paths(value)
+        # for key, value in data.items():
+        #     if key not in ["info", "history"]:
+        #         self._sections[key] = self._resolve_host_paths(value)
             
         return self
 
@@ -338,16 +344,14 @@ class Project():
         if isinstance(obj, BaseModel):
             return self._convert_to_serializable(obj.model_dump())
         if isinstance(obj, Path):
+            console.print(f"[pink]Host aware path: [/]{obj}")
             host_aware_path = host_solver.from_path_to_hostpath(obj)
+            console.print(f"[red]Host aware path: [/]{host_aware_path}")
             return host_aware_path
         if isinstance(obj, str):
             if obj == "":
                 return ""
-            try:
-                if Path(obj).exists():
-                    host_aware_path = host_solver.from_path_to_hostpath(Path(obj))
-                    return host_aware_path
-            except ValueError:
+            else:
                 return obj
         if isinstance(obj, datetime):
             return obj.strftime("%Y-%m-%d %H:%M:%S")  # Include seconds for command history

@@ -54,7 +54,9 @@ class HostPathSolver:
         if path.exists():
             # Try to match against host mappings
             for host, mount_point in self.host_mappings.items():
-                if mount_point:
+                if str(path).startswith(host):
+                    path = Path(str(path).lstrip(host+":"))
+                if mount_point != "":
                     mount_point = str(mount_point)
                     if str(path).startswith(mount_point):
                         # Remove mount point and return host:path format
@@ -80,32 +82,37 @@ class HostPathSolver:
         Raises:
             ValueError: If host is not found in mappings
         """
-        # if isinstance(host_path, Path):
-        #     host_path = host_path.absolute()
-        #     if host_path.exists():
-        #         return host_path
-        #     else:
-        #         # console.warning(f"Path does not exist: {host_path}")
-        #         return host_path
-        if isinstance(host_path, str) and ":" not in host_path:
-            # skip if host_path is a string and does not contain ":"
-            absolute_path = Path(host_path).resolve()
-            # print(f"Absolute path: {absolute_path}")
-            # if absolute_path.exists():
-            return absolute_path
-            # else:
-            #     return host_path
-        else:
-            # host_path is a string in format host:path
-            host, path = host_path.split(":", 1)
-            if host not in self.host_mappings:
-                raise ValueError(f"Unknown host: {host}")
-                
-            mount_point = self.host_mappings[host]
-            if mount_point:
-                return Path(mount_point+ "/" + path.lstrip("/"))
+        def resolve_host_path_str(host_path: str) -> Path:
+            if ":" not in host_path:
+                # skip if host_path is a string and does not contain ":"
+                absolute_path = Path(host_path).resolve()
+                # print(f"Absolute path: {absolute_path}")
+                # if absolute_path.exists():
+                return absolute_path
+                # else:
+                #     return host_path
             else:
-                return Path(path)
+                # host_path is a string in format host:path
+                host, path = host_path.split(":", 1)
+                if host not in self.host_mappings:
+                    raise ValueError(f"Unknown host: {host}")
+                    
+                mount_point = self.host_mappings[host]
+                if mount_point:
+                    return Path(mount_point+ "/" + path.lstrip("/"))
+                else:
+                    return Path(path)
+                
+        if isinstance(host_path, Path):
+            host_path = host_path.absolute()
+            if host_path.exists():
+                return host_path
+            else:
+                resolve_host_path_str(str(host_path))
+        elif isinstance(host_path, str):
+            resolve_host_path_str(host_path)
+        # else:
+        #     return host_path
 
     def get_host_mappings(self) -> Dict[str, str]:
         """Get current host mappings.

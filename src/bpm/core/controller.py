@@ -323,6 +323,7 @@ class Controller:
 
     def resolve_template_output_dir_with_project(self) -> Path:
         """Resolve the template output directory with the project."""
+        console.warning(f"Project directory: {self.project.info.project_dir}")
         if self.template.config.structure == StructureType.SUBSECTION:
             render_target = self.project.info.project_dir / \
                 self.template.config.section / self.template.config.name
