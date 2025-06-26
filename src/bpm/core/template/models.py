@@ -59,7 +59,7 @@ class TemplateInput(BaseModel):
         """
         if values.get('type') == InputType.PATH and v is not None:
             try:
-                return host_solver.from_hostpath_to_path(v)
+                return host_solver.from_hostpathstr_to_path(v)
             except ValueError:
                 return v
         return v
@@ -94,7 +94,7 @@ class TemplateOutput(BaseModel):
         """
         if values.get('type') == InputType.PATH and v is not None:
             try:
-                return host_solver.from_hostpath_to_path(v)
+                return host_solver.from_hostpathstr_to_path(v)
             except ValueError:
                 return v
         return v

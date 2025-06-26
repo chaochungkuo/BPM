@@ -344,7 +344,9 @@ class Controller:
         # Get template context
         render_context = self.template_inputs
         render_context.update(self.context)
-        console.print(f"Render context: {render_context}")
+        if self.verbose:
+            console.info("Render context:")
+            pprint(render_context)
         # Render template
         self.template.render(context=render_context,
                              output_dir=output_dir)

@@ -8,6 +8,7 @@ import os, sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 from datetime import datetime, timedelta
+from rich.pretty import pprint
 
 from pydantic import BaseModel
 from ruamel.yaml import YAML
@@ -239,7 +240,7 @@ class Project():
         if isinstance(data, str):
             # Check if string is a host path
             if ":/" in data:
-                resolved_path = host_solver.from_hostpath_to_path(data)
+                resolved_path = host_solver.from_hostpathstr_to_path(data)
                 if resolved_path.exists():
                     return resolved_path
                 else:
@@ -274,9 +275,7 @@ class Project():
             # Resolve host paths in info data
             info_data = self._resolve_host_paths(data["info"])
             self.info = BasicInfo(**info_data)
-            # self.info = BasicInfo(**data["info"])
-            # self.info.project_dir = host_solver.from_hostpath_to_path(self.info.project_dir)
-            console.print(f"[pink]Project info: [/]{self.info}")
+            
         if "history" in data:
             self.history = []
             for entry in data["history"]:
@@ -344,9 +343,7 @@ class Project():
         if isinstance(obj, BaseModel):
             return self._convert_to_serializable(obj.model_dump())
         if isinstance(obj, Path):
-            console.print(f"[pink]Host aware path: [/]{obj}")
-            host_aware_path = host_solver.from_path_to_hostpath(obj)
-            console.print(f"[red]Host aware path: [/]{host_aware_path}")
+            host_aware_path = host_solver.from_path_to_hostpathstr(obj)
             return host_aware_path
         if isinstance(obj, str):
             if obj == "":

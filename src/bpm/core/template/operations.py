@@ -193,7 +193,6 @@ class Template():
             SystemExit: If output directory is not specified in context
         """
         if self.verbose:
-            console.info("Starting template rendering process")
             console.info(f"Template directory: {self.template_dir}")
             console.info(f"Context keys: {list(context.keys())}")
             console.info(f"Output directory: {output_dir}")
@@ -208,31 +207,21 @@ class Template():
             keep_trailing_newline=True,  # Preserve trailing newlines
             trim_blocks=True,            # Remove first newline after a block
             lstrip_blocks=True          # Remove whitespace before blocks
-        )
-        
-        if self.verbose:
-            console.info("Jinja2 environment configured")
-            
+        )   
         for file_path in template_root.rglob("*"):
             if file_path.is_dir() or file_path.name == "template_config.yaml":
-                if self.verbose:
-                    console.info(f"Skipping {file_path}")
                 continue
 
             rel_path = file_path.relative_to(template_root)
             out_path = output_dir / rel_path
-            console.info(f"Output path: {out_path}")
             out_path.parent.mkdir(parents=True, exist_ok=True)
             
             if self.verbose:
-                console.info(f"Processing file: {rel_path}")
-                console.info(f"Output path: {out_path}")
+                console.info(f"Render {rel_path} to {out_path}")
 
             # Try rendering as text, fallback to copy if binary
             try:
                 template = env.get_template(str(rel_path))
-                if self.verbose:
-                    console.info(f"Rendering template: {rel_path}")
                 rendered = template.render(context)
                 with open(out_path, "w", encoding="utf-8") as f:
                     f.write(rendered)
@@ -240,8 +229,7 @@ class Template():
                     console.info(f"Successfully rendered: {rel_path}")
             except Exception as e:
                 if self.verbose:
-                    console.warning(f"Failed to render {rel_path} as template: {str(e)}")
-                    console.info(f"Copying file as binary: {rel_path}")
+                    console.info(f"Copying file without rendering: {rel_path}")
                 # If it's a binary file or not a Jinja2 template, just copy it
                 shutil.copy2(file_path, out_path)
                 

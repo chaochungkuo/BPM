@@ -53,7 +53,7 @@ def make_generate_command(template_name: str,
         force_output_dir = False
         
         if project_path:
-            project_path = host_solver.from_hostpath_to_path(str(project_path))
+            project_path = project_path.resolve()
             console.print(f"[bold green]Project file:[/] {project_path}")
             controller.load_project(project_path)
             if output_path:
@@ -61,7 +61,7 @@ def make_generate_command(template_name: str,
                 output_path = None
         else:
             if output_path:
-                output_path = host_solver.from_hostpath_to_path(str(output_path))
+                output_path = host_solver.from_hostpathstr_to_path(output_path)
                 console.print(f"[bold green]Output directory:[/] {output_path}")
                 controller.create_project(project_path=output_path)
                 console.print(f"[bold green]Create a new project in:[/] {output_path}")

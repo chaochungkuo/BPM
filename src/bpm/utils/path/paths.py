@@ -42,7 +42,7 @@ class HostPathSolver:
         """
         self.host_mappings = host_mappings
 
-    def from_path_to_hostpath(self, path: Path) -> str:
+    def from_path_to_hostpathstr(self, path: Path) -> str:
         """Convert a path to host:path format.
         
         Args:
@@ -51,26 +51,20 @@ class HostPathSolver:
         Returns:
             Path in format host:path or original path if no host match
         """
-        if path.exists():
-            # Try to match against host mappings
-            for host, mount_point in self.host_mappings.items():
-                if str(path).startswith(host):
-                    path = Path(str(path).lstrip(host+":"))
-                if mount_point != "":
-                    mount_point = str(mount_point)
-                    if str(path).startswith(mount_point):
-                        # Remove mount point and return host:path format
-                        relative_path = str(path)[len(mount_point):]
-                        return f"{host}:{relative_path}"
-                elif mount_point == "":
-                    return f"{host}:{str(path)}"
-        
-        else:
-            console.warning(f"Path does not exist: {path}")
-            # No host match, return original path
-            return str(path)
+        path = path.absolute()
+        # Try to match against host mappings
+        for hostname, mount_point in self.host_mappings.items():
+            # path has prefix of mount_point
+            if mount_point != "":
+                mount_point = str(mount_point)
+                if str(path).startswith(mount_point):
+                    # Remove mount point and return host:path format
+                    relative_path = str(path)[len(mount_point):]
+                    return f"{hostname}:{relative_path}"
+            elif mount_point == "":
+                return f"{hostname}:{str(path)}"
 
-    def from_hostpath_to_path(self, host_path: str) -> Path:
+    def from_hostpathstr_to_path(self, host_path: str) -> Path:
         """Convert from host:path format to full path.
         
         Args:
@@ -82,37 +76,22 @@ class HostPathSolver:
         Raises:
             ValueError: If host is not found in mappings
         """
-        def resolve_host_path_str(host_path: str) -> Path:
-            if ":" not in host_path:
-                # skip if host_path is a string and does not contain ":"
-                absolute_path = Path(host_path).resolve()
-                # print(f"Absolute path: {absolute_path}")
-                # if absolute_path.exists():
-                return absolute_path
-                # else:
-                #     return host_path
+        if ":" not in host_path:
+            # skip if host_path is a string and does not contain ":"
+            absolute_path = Path(host_path).resolve()
+            return absolute_path
+        else:
+            # host_path is a string in format host:path
+            host, path = host_path.split(":", 1)
+            if host not in self.host_mappings:
+                raise ValueError(f"Unknown host: {host}")
+            path = Path(path).resolve()
+            mount_point = Path(self.host_mappings[host])
+            if mount_point:
+                return mount_point / path
             else:
-                # host_path is a string in format host:path
-                host, path = host_path.split(":", 1)
-                if host not in self.host_mappings:
-                    raise ValueError(f"Unknown host: {host}")
-                    
-                mount_point = self.host_mappings[host]
-                if mount_point:
-                    return Path(mount_point+ "/" + path.lstrip("/"))
-                else:
-                    return Path(path)
+                return path
                 
-        if isinstance(host_path, Path):
-            host_path = host_path.absolute()
-            if host_path.exists():
-                return host_path
-            else:
-                resolve_host_path_str(str(host_path))
-        elif isinstance(host_path, str):
-            resolve_host_path_str(host_path)
-        # else:
-        #     return host_path
 
     def get_host_mappings(self) -> Dict[str, str]:
         """Get current host mappings.

@@ -58,7 +58,7 @@ def make_run_command(workflow_name: str,
         project_path = kwargs.pop("project", None)
 
         if project_path:
-            project_path = path.host_solver.from_hostpath_to_path(project_path)
+            project_path = path.host_solver.from_hostpathstr_to_path(project_path)
             console.print(f"[bold green]Project file:[/] {project_path}")
             controller.load_project(project_path)
         else:
