@@ -467,7 +467,7 @@ class CacheManager:
             return Path(cache["repositories"][repo_name]["path"]) / "resolvers"
         return None
     
-    def get_post_hooks(self, repo_name: Optional[str] = None) -> Optional[Path]:
+    def get_posthooks(self, repo_name: Optional[str] = None) -> Optional[Path]:
         """Get the path to repository post hooks.
         
         Args:

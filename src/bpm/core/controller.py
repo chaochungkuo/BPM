@@ -187,6 +187,7 @@ class Controller:
                                  config_loader=self.config_loader,
                                  verbose=self.verbose)
         self.process_template_inputs()
+        self.process_template_post_hooks()
         self.check_template_required_tools()
         
         if self.project and not force_output_dir:
@@ -294,6 +295,14 @@ class Controller:
         if self.verbose:
             console.info("All template inputs processed successfully")
 
+    def process_template_post_hooks(self) -> None:
+        """Process template post hooks."""
+        if self.verbose:
+            console.info("Processing template post hooks...")
+        for post_hook in self.template.config.post_hooks:
+            console.info(f"Processing post hook: {post_hook}")
+            self._posthook(post_hook)
+
     def _resolver(self, resolver: str) -> Any:
         """Resolve a value from the context.
         
@@ -320,6 +329,33 @@ class Controller:
         resolver_module = importlib.import_module(resolver)
         resolver_function = getattr(resolver_module, resolver)
         return resolver_function(flatten_dict(self.context))
+
+    def _posthook(self, posthook: str) -> Any:
+        """Run a post-hook.
+
+        Args:
+            posthooker: Post-hook type
+            
+        Returns:
+            None
+            
+        Raises:
+            ControllerError: If post-hook file not found or post-hook fails
+        """
+        posthook_dir = self.cache_manager.get_posthooks()
+        posthook_file = posthook_dir / f"{posthook}.py"
+        if not posthook_file.exists():
+            raise ControllerError(f"Post-hook file '{posthook_file}' not found")
+        
+        # Add post-hook directory to Python path
+        import sys
+        if str(posthook_dir) not in sys.path:
+            sys.path.append(str(posthook_dir))
+        
+        # Import the module using just the filename without extension
+        posthook_module = importlib.import_module(posthook)
+        posthook_function = getattr(posthook_module, posthook)
+        return posthook_function(flatten_dict(self.context))
 
     def resolve_template_output_dir_with_project(self) -> Path:
         """Resolve the template output directory with the project."""

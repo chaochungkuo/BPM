@@ -6,6 +6,8 @@ This module provides utilities for consistent console output formatting.
 from rich.console import Console
 from rich.panel import Panel
 from rich.theme import Theme
+from rich.pretty import pprint
+from typing import Dict, Any
 import sys
 
 # Define custom theme
@@ -14,6 +16,7 @@ theme = Theme({
     "warning": "yellow",
     "error": "red",
     "success": "green",
+    "dict": "blue",
 })
 
 class BPMConsole(Console):
@@ -76,4 +79,13 @@ class BPMConsole(Console):
         if subtitle:
             self.print(f"\n[bold blue]{title}[/bold blue] - {subtitle}")
         else:
-            self.print(f"\n[bold blue]{title}[/bold blue]") 
+            self.print(f"\n[bold blue]{title}[/bold blue]")
+            
+    def dict(self, data: Dict[str, Any]) -> None:
+        """Print a dictionary.
+        
+        Args:
+            data: Dictionary to print
+        """
+        self.print(f"Context Dictionary:")
+        pprint(data)
