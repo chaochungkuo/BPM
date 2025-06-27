@@ -216,10 +216,10 @@ class Controller:
             console.info("Processing template inputs...")
             
         self.template_inputs = {}
+        context_dict = nested_flatten_dict(self.context)
         for input_name, input_config in self.template.config.inputs.items():
             if self.verbose:
-                console.info(f"Processing input: {input_name}")
-                
+                console.info(f"Processing input: {input_name}")   
             # Required input
             if input_config.required:
                 # Get input from context
@@ -235,17 +235,25 @@ class Controller:
                 if self.template_inputs[input_name] is None:
                     console.error(f"Required input '{input_name}' should be provided.")
                     sys.exit(1)
-            else:
+            else: # Optional input
+                # Get input from context if it is defined
                 if self.get_context_value(input_name) is not None:
                     # Get input from context if it is defined
                     self.template_inputs[input_name] = \
                         self.get_context_value(input_name)
                     if self.verbose:
                         console.info(f"Optional input '{input_name}' found in context")
+                # If input is not found in context, use default value
                 else:
                     # Default input for non-required inputs
                     if input_config.default:
-                        self.template_inputs[input_name] = input_config.default
+                        console.info(f"Default value for '{input_name}': {input_config.default}")
+                        console.info(context_dict(input_config.default))
+                        if context_dict(input_config.default):
+                            self.template_inputs[input_name] = \
+                                context_dict(input_config.default)
+                        else:
+                                self.template_inputs[input_name] = input_config.default
                         if self.verbose:
                             console.info(f"Using default value for '{input_name}'")
                         if isinstance(input_config.default, str):

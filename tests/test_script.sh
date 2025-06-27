@@ -20,8 +20,8 @@ touch demo/250620_demultiplexing/fastq_outputs/test2.fastq.gz
 touch demo/250620_demultiplexing/multiqc_report.html
 bpm update --template demultiplexing:bclconvert --project demo/250620_demultiplexing/project.yaml
 # init
-bpm init --help
-bpm init -f demo/250101_Name1_Name2_Institute_Application --from demo/250620_demultiplexing/project.yaml --authors ckuo
+# bpm init --help
+# bpm init -f demo/250101_Name1_Name2_Institute_Application --from demo/250620_demultiplexing/project.yaml --authors ckuo
 
 # generate
 # bpm generate --help
@@ -37,7 +37,7 @@ bpm init -f demo/250101_Name1_Name2_Institute_Application --from demo/250620_dem
 # bpm update --help
 
 
-bpm generate nfcore:rnaseq --help
-bpm generate nfcore:rnaseq --project demo/250101_Name1_Name2_Institute_Application/project.yaml
+# bpm generate nfcore:rnaseq --help
+# bpm generate nfcore:rnaseq --project demo/250101_Name1_Name2_Institute_Application/project.yaml
 
 # bpm run generate_nfcore_rnaseq_samplesheet --help
