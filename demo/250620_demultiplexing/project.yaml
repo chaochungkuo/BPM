@@ -1,0 +1,18 @@
+---
+info:
+  project_dir: Josephs-MacBook-Air:/Users/ckuo/Desktop/BPM/demo/250620_demultiplexing
+  project_name: 250620_demultiplexing
+  project_date: '250620'
+  authors:
+  created_at: '2025-06-27 12:02:37'
+  retention_until:
+demultiplexing:
+  bcl_path: Josephs-MacBook-Air:/Users/ckuo/Desktop/BPM/demo/250620_bcl_raw
+  demultiplexing_dir: Josephs-MacBook-Air:/Users/ckuo/Desktop/BPM/demo/250620_demultiplexing
+  run_fastq_screen: true
+  num_threads: 7
+  fastq_dir: Josephs-MacBook-Air:/Users/ckuo/Desktop/BPM/demo/250620_demultiplexing/fastq_outputs
+  fastq_multiqc: Josephs-MacBook-Air:/Users/ckuo/Desktop/BPM/demo/250620_demultiplexing/multiqc_report.html
+history:
+  - '2025-06-27 12:02:39: bpm generate demultiplexing:bclconvert --bcl-path demo/250620_bcl_raw/ --output demo/250620_demultiplexing/'
+  - '2025-06-27 12:02:39: bpm update --template demultiplexing:bclconvert --project demo/250620_demultiplexing/project.yaml'

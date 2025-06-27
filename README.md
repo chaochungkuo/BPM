@@ -1,104 +1,97 @@
 # BPM (Bioinformatics Project Manager)
 
-A flexible, template-driven CLI tool for managing bioinformatics projects.
+[![Documentation](https://img.shields.io/badge/docs-GitHub%20Pages-blue?style=flat-square&logo=github)](https://chaochungkuo.github.io/BPM/)
+[![PyPI](https://img.shields.io/pypi/v/bpm?style=flat-square)](https://pypi.org/project/bpm/)
+[![License](https://img.shields.io/badge/license-MIT-green?style=flat-square)](LICENSE)
+[![Python](https://img.shields.io/badge/python-3.10+-blue?style=flat-square&logo=python)](https://www.python.org/)
 
-## Features
+A flexible, template-driven CLI tool for managing bioinformatics projects with standardized workflows and reproducible research practices.
+
+## ✨ Features
 
 - **Project Management**: Create and manage bioinformatics projects with standardized naming
 - **Template System**: Generate project files from customizable templates
 - **Workflow Execution**: Run predefined bioinformatics workflows
 - **Repository Management**: Manage template and workflow repositories
-- **Host-Aware Paths**: Cross-platform path resolution with host mapping
+- **Cross-platform**: Works on Linux, macOS, and Windows
 
-## Installation
+## 🚀 Quick Start
+
+### Installation
 
 ```bash
 pip install bpm
 ```
 
-In order to configure BPM cache folder, it is necessary to set the environment variable `BPM_CACHE` where you want to save cache files. If not specified, it will be set as `$HOME/.cache/bpm`. This variable needs to be always available by BPM and should be set in the `.bashrc`.
+### Setup
+
+Set up your cache directory (add to your shell configuration):
 
 ```bash
 export BPM_CACHE="/path/to/bpm_cache"
 ```
 
-## Quick Start
-
-1. Initialize a new project:
-```bash
-bpm init 230101_ProjectName_Institute_Application
-```
-
-2. Add a repository:
-```bash
-bpm repo add /path/to/repository
-```
-
-3. Generate files from a template:
-```bash
-bpm generate template_name --project project.yaml
-```
-
-4. Run a workflow:
-```bash
-bpm run workflow_name --project project.yaml
-```
-
-## Commands
-
-### Project Management
+### Basic Usage
 
 ```bash
 # Initialize a new project
-bpm init 230101_ProjectName_Institute_Application
+bpm init 240101_RNAseq_Study_Institute_Research
 
-# Show project information
-bpm info --project project.yaml
-
-# Update template outputs
-bpm update --template section:name --project project.yaml
-```
-
-### Repository Management
-
-```bash
-# Add a repository
+# Add a repository with templates
 bpm repo add /path/to/repository
 
-# List repositories
-bpm repo list
-
-# Select active repository
-bpm repo select repository_name
-
-# Update repository
-bpm repo update
-```
-
-### Template and Workflow Management
-
-```bash
-# Generate files from template
-bpm generate template_name --project project.yaml
+# Generate files from a template
+bpm generate nfcore:rnaseq --project project.yaml
 
 # Run a workflow
-bpm run workflow_name --project project.yaml
+bpm run workflows:generate_samplesheet --project project.yaml
 ```
 
-## Development
+## 📚 Documentation
 
-### Adding New Templates
+For comprehensive documentation, tutorials, and examples, visit:
 
+**📖 [BPM Documentation](https://chaochungkuo.github.io/BPM/)**
 
-### Adding New Workflows
+The documentation includes:
+- [Installation Guide](https://chaochungkuo.github.io/BPM/getting-started/installation/)
+- [Quick Start Tutorial](https://chaochungkuo.github.io/BPM/getting-started/quick-start/)
+- [User Guide](https://chaochungkuo.github.io/BPM/user-guide/projects/)
+- [CLI Reference](https://chaochungkuo.github.io/BPM/user-guide/cli-reference/)
+- [Examples](https://chaochungkuo.github.io/BPM/examples/bioinformatics/rnaseq-pipeline/)
+- [FAQ](https://chaochungkuo.github.io/BPM/troubleshooting/faq/)
 
+## 🎯 Use Cases
 
-## Contributing
+BPM is designed for bioinformatics professionals who need to:
+
+- **Standardize project structure** across multiple research projects
+- **Automate repetitive tasks** in bioinformatics workflows
+- **Share templates and workflows** within research teams
+- **Ensure reproducibility** in bioinformatics research
+- **Manage complex pipeline configurations** efficiently
+
+## 🔧 Requirements
+
+- Python 3.10 or higher
+- pip (Python package installer)
+- Git (for repository management)
+
+## 🤝 Contributing
+
+We welcome contributions! Please see our [Contributing Guide](https://chaochungkuo.github.io/BPM/developer-guide/contributing/) for details.
 
 1. Fork the repository
 2. Create a feature branch
 3. Submit a pull request
 
-## License
+## 📄 License
 
-MIT License
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🔗 Links
+
+- [GitHub Repository](https://github.com/chaochungkuo/BPM)
+- [PyPI Package](https://pypi.org/project/bpm/)
+- [Issues](https://github.com/chaochungkuo/BPM/issues)
+- [Releases](https://github.com/chaochungkuo/BPM/releases)
