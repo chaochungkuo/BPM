@@ -328,7 +328,9 @@ class Controller:
         # Import the module using just the filename without extension
         resolver_module = importlib.import_module(resolver)
         resolver_function = getattr(resolver_module, resolver)
-        return resolver_function(flatten_dict(self.context))
+        if self.verbose:
+            console.dict(nested_flatten_dict(self.context))
+        return resolver_function(nested_flatten_dict(self.context))
 
     def _posthook(self, posthook: str) -> Any:
         """Run a post-hook.
@@ -342,7 +344,7 @@ class Controller:
         Raises:
             ControllerError: If post-hook file not found or post-hook fails
         """
-        posthook_dir = self.cache_manager.get_posthooks()
+        posthook_dir = self.cache_manager.get_post_hooks()
         posthook_file = posthook_dir / f"{posthook}.py"
         if not posthook_file.exists():
             raise ControllerError(f"Post-hook file '{posthook_file}' not found")
@@ -355,7 +357,7 @@ class Controller:
         # Import the module using just the filename without extension
         posthook_module = importlib.import_module(posthook)
         posthook_function = getattr(posthook_module, posthook)
-        return posthook_function(flatten_dict(self.context))
+        return posthook_function(nested_flatten_dict(self.context))
 
     def resolve_template_output_dir_with_project(self) -> Path:
         """Resolve the template output directory with the project."""
