@@ -6,8 +6,11 @@ This module provides the update command for updating template outputs in a proje
 import typer
 from pathlib import Path
 from typing import Optional, Tuple
+from rich.pretty import pprint
 from ..core.controller import Controller
 from ..utils.ui.console import BPMConsole
+from ..utils.path import host_solver
+from .util import get_template_outputs
 
 console = BPMConsole()
 
@@ -59,21 +62,23 @@ def update(
     This command updates the output values for a specific template in a project
     by running the output resolvers defined in the template.
     """
+    # output_opts = get_template_outputs(template)
+    # pprint(output_opts)
     try:
         # Parse template name
         section, name = parse_template_name(template)
-        if verbose:
-            console.info(f"Template section: {section}, name: {name}")
-        
         # Initialize controller
         controller = Controller(verbose=verbose)
-        
-        # Load project
-        if not project.exists():
-            console.error(f"Project file not found: {project}")
+        if verbose:
+            console.info(f"Template section: {section}, name: {name}")
+        if project:
+            # project = host_solver.from_hostpathstr_to_path(str(project))
+            project = project.resolve()
+            console.print(f"[bold green]Project file:[/] {project}")
+            controller.load_project(project)
+        else:
+            console.error("Project file is required")
             raise typer.Exit(1)
-            
-        controller.load_project(project)
         
         # Update outputs
         try:

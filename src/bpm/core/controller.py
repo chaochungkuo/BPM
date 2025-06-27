@@ -374,10 +374,16 @@ class Controller:
             section[output] = ""
         section_name = self.template.config.section
         if self.template.config.structure == StructureType.SUBSECTION:
-            section = {self.template.config.name: section}
+            self.project.add_project_section(section_name,
+                                             self.template.config.name,
+                                             section)
+        else:
+            self.project.add_project_section(section_name,
+                                             "",
+                                             section)
         if self.verbose:
             console.info(f"Adding template section '{section_name}' to project")
-        self.project.add_project_section(section_name, section)
+        
 
     def create_project(self,
                        project_path: Path,
@@ -477,32 +483,15 @@ class Controller:
         self.template = Template(template_path,
                                  config_loader=self.config_loader,
                                  verbose=self.verbose)
-        # Try to find the template section
-        template_section = None
-        if ":" in template_name:
-            section, name = template_name.split(":")
-        try:
-            template_section = self.project.get_project_section(section)
-            if self.verbose:
-                console.info(f"Found template section '{section}' in project")
-        except Exception as e:
-            if self.verbose:
-                console.warning(f"Section '{section}' not found: {e}")
-        
-        if not template_section:
-            # Search for section containing the template name
-            if self.verbose:
-                console.info(f"Searching for section containing template '{template_name}'")
-            for section_name, section_data in self.project._sections.items():
-                if isinstance(section_data, dict) and template_name in section_data:
-                    template_section = section_data
-                    if self.verbose:
-                        console.info(f"Found template in section '{section_name}'")
-                    break
-            
-            if not template_section:
-                raise ControllerError(f"Could not find template '{template_name}' in project")
-            
+        # Get template section
+        section = self.template.config.section
+        template_name = self.template.config.name
+        console.info(f"Template section: {section}, template name: {template_name}")
+        if self.template.config.structure == StructureType.SUBSECTION:
+            template_section = self.project.get_project_section(section,
+                                                                template_name)
+        else:
+            template_section = self.project.get_project_section(section, "")
         # Process each output
         for output_name in self.template.config.outputs:
             if self.verbose:
@@ -530,7 +519,10 @@ class Controller:
                 if self.verbose:
                     console.error(f"Failed to resolve output {output_name}: {e}")
                 continue
-                
+        if self.template.config.structure == StructureType.SUBSECTION:
+            self.project.add_project_section(section, template_name, template_section)
+        else:
+            self.project.add_project_section(section, "", template_section)
         # Save updated project
         try:
             self.project.save_to_file()

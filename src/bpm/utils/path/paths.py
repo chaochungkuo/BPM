@@ -76,11 +76,7 @@ class HostPathSolver:
         Raises:
             ValueError: If host is not found in mappings
         """
-        if ":" not in host_path:
-            # skip if host_path is a string and does not contain ":"
-            absolute_path = Path(host_path).resolve()
-            return absolute_path
-        else:
+        if isinstance(host_path, str) and ":" in host_path:
             # host_path is a string in format host:path
             host, path = host_path.split(":", 1)
             if host not in self.host_mappings:
@@ -91,6 +87,12 @@ class HostPathSolver:
                 return mount_point / path
             else:
                 return path
+        elif isinstance(host_path, str) and ":" not in host_path:
+            # skip if host_path is a string and does not contain ":"
+            absolute_path = Path(host_path).resolve()
+            return absolute_path
+        else:
+            raise ValueError(f"Unknown host path: {host_path}")
                 
 
     def get_host_mappings(self) -> Dict[str, str]:

@@ -9,38 +9,11 @@ from ..utils.path.paths import host_solver
 from typing import Dict, Any, Callable
 from ..core.controller import Controller
 from ..utils.ui.console import BPMConsole
+from .util import get_template_options
 
 console = BPMConsole()
 generate_app = typer.Typer(name="generate", 
                   help="Generate template files according to the customized context.")
-
-def get_template_options(template_name: str) -> Dict[str, Any]:
-    controller = Controller()
-    template_path = controller.cache_manager.get_template_path(template_name)
-    config_path = template_path / "template_config.yaml"
-
-    if not config_path.exists():
-        raise typer.Exit(f"[bold red]Template config not found:[/] {config_path}")
-
-    with open(config_path) as f:
-        config = yaml.safe_load(f)
-
-    options = {}
-    for key, spec in config.get("inputs", {}).items():
-        opt_type = {
-            "boolean": bool,
-            "integer": int,
-            "float": float,
-            "path": Path
-        }.get(spec.get("type"), str)
-
-        options[key] = {
-            "default": None if spec.get("required") else spec.get("default"),
-            "help": spec.get("description", key),
-            "type": opt_type
-        }
-    description = config.get("description", "")
-    return description, options
 
 def make_generate_command(template_name: str,
                           template_desc: str,

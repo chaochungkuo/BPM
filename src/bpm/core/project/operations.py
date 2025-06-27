@@ -202,22 +202,26 @@ class Project():
         
         self.history.append(history_entry)
 
-    def add_project_section(self, name: str, section: BaseModel) -> None:
+    def add_project_section(self, section_name: str, subsection_name: str, data: BaseModel) -> None:
         """Add a new section to the project.
         
         Args:
-            name: Section name
-            section: Section model instance
+            section_name: Section name
+            subsection_name: Subsection name
+            data: Subsection model instance
             
         Example:
             >>> project.add_project_section("demultiplexing", DemultiplexInfo(...))
         """
-        if name in self._sections:
-            self._sections[name].update(section)
-        else:
-            self._sections[name] = section
+        if section_name and subsection_name:
+            if section_name in self._sections:
+                self._sections[section_name][subsection_name] = data
+            else:
+                self._sections[section_name] = {subsection_name: data}
+        elif section_name and not subsection_name:
+            self._sections[section_name] = data
 
-    def get_project_section(self, name: str) -> BaseModel | None:
+    def get_project_section(self, section_name: str, subsection_name: str = "") -> BaseModel | None:
         """Get a project section by name.
         
         Args:
@@ -226,7 +230,13 @@ class Project():
         Returns:
             Section model instance or None if not found
         """
-        return self._sections.get(name)
+        if subsection_name and section_name in self._sections:
+            return self._sections[section_name].get(subsection_name)
+        elif section_name and not subsection_name:
+            return self._sections.get(section_name)
+        else:
+            console.error(f"Section {section_name}:{subsection_name} not found")
+            return None
 
     def _resolve_host_paths(self, data: Any) -> Any:
         """Recursively resolve host paths in data.
@@ -282,9 +292,9 @@ class Project():
                 self.history.append(entry)
             
         # Load sections and resolve host paths
-        # for key, value in data.items():
-        #     if key not in ["info", "history"]:
-        #         self._sections[key] = self._resolve_host_paths(value)
+        for key, value in data.items():
+            if key not in ["info", "history"]:
+                self._sections[key] = self._resolve_host_paths(value)
             
         return self
 
