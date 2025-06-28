@@ -38,7 +38,7 @@ export BPM_CACHE="/path/to/bpm_cache"
 bpm init 240101_RNAseq_Study_Institute_Research
 
 # Add a repository with templates
-bpm repo add /path/to/repository
+bpm repo add https://github.com/IZKF-Genomics/BPM_repo
 
 # Generate files from a template
 bpm generate nfcore:rnaseq --project project.yaml

@@ -7,7 +7,7 @@ This guide will walk you through creating your first bioinformatics project with
 Before starting, ensure you have:
 
 - [BPM installed](installation.md) and configured
-- A BPM repository with templates (we'll use the demo repository)
+- A BPM repository with templates (we'll use the example repository)
 
 ## Step 1: Initialize Your First Project
 
@@ -38,6 +38,9 @@ bpm repo add /path/to/your/bpm_repository
 
 # Or add from GitHub (if available)
 bpm repo add https://github.com/username/bpm-repo.git
+
+# Or use the example repository
+bpm repo add https://github.com/IZKF-Genomics/BPM_repo.git
 ```
 
 List available repositories:
@@ -123,7 +126,7 @@ Here's a complete example of setting up an RNA-seq analysis project:
 bpm init 240101_RNAseq_Study_Institute_Research
 
 # 2. Add repository
-bpm repo add /path/to/bioinformatics_repo
+bpm repo add https://github.com/IZKF-Genomics/BPM_repo.git
 
 # 3. Generate RNA-seq template
 bpm generate nfcore:rnaseq --project project.yaml
@@ -176,6 +179,14 @@ BPM repositories contain:
 - **Templates**: File generation templates
 - **Workflows**: Executable workflows
 - **Configuration**: Repository-specific settings
+
+### Example BPM Repository
+
+The [IZKF-Genomics/BPM_repo](https://github.com/IZKF-Genomics/BPM_repo) serves as an example of how to create a BPM repository for your organization. It contains:
+- Templates for common bioinformatics workflows
+- Example workflows for sample sheet generation
+- Configuration files for the UKA IZKF Genomics Facility
+- Documentation on how to customize for your team
 
 ## Next Steps
 
