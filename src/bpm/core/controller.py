@@ -165,6 +165,7 @@ class Controller:
                 "project": project_context,
                 "repo_config": config_context,
             }
+        
         self.context = context
         # pprint(self.context)
         if self.verbose:
@@ -217,6 +218,9 @@ class Controller:
             
         self.template_inputs = {}
         context_dict = nested_flatten_dict(self.context)
+        # Convert all paths recursively to Path objects
+        context_dict = self._convert_paths_recursively(context_dict, self.host_solver)
+        console.dict(context_dict)
         for input_name, input_config in self.template.config.inputs.items():
             if self.verbose:
                 console.info(f"Processing input: {input_name}")   
@@ -576,4 +580,47 @@ class Controller:
                 console.info("Saved updated project configuration")
         except Exception as e:
             raise ControllerError(f"Failed to save updated project: {e}")
+
+    def _convert_paths_recursively(self, obj, host_solver):
+        """
+        Recursively convert string paths to Path objects in nested data structures.
+        
+        Args:
+            obj: The object to process (dict, list, tuple, or other types)
+            host_solver: The host solver instance for path conversion
+            
+        Returns:
+            The processed object with paths converted
+        """
+        if isinstance(obj, dict):
+            # Process dictionary recursively
+            result = {}
+            for k, v in obj.items():
+                result[k] = self._convert_paths_recursively(v, host_solver)
+            return result
+        elif isinstance(obj, (list, tuple)):
+            # Process list/tuple recursively
+            return type(obj)(self._convert_paths_recursively(item, host_solver) for item in obj)
+        elif isinstance(obj, str):
+            # Convert string to Path if it exists and looks like a path
+            if obj and not obj.startswith(('http://', 'https://', 'ftp://')):
+                console.info(f"Converting path: {obj}")
+                try:
+                    resolved_path = host_solver.from_hostpathstr_to_path(obj)
+                    # Check if path exists (file or directory)
+                    # if resolved_path.exists():
+                    # console.info(f"Path exists: {resolved_path}")
+                    return resolved_path
+                    # else:
+                    #     console.warning(f"Path does not exist: {resolved_path}")
+                    #     return obj
+                except Exception as e:
+                    # console.warning(f"Path resolution failed for '{obj}': {e}")
+                    # If path conversion fails, return original string
+                    return obj
+            else:
+                return obj
+        else:
+            # Return other types as-is
+            return obj
         

@@ -1,11 +1,14 @@
 ToDo:
-- template_config.yaml
-- two types of hook functions:
-    - post-hook
-    - input_resolver
-    
-- in controller, collect context and feed to template
-- order of template
-    1. Load inputs, resolved by per-input hook
-    2. Render template files
-    3. After render, run post-hook
+- def insert_temp_to_project():
+- bpm update
+- bpm info:
+    project.yaml
+    template_name
+- post hook
+- console.table
+- bpm run workflow
+- documentation
+    for user
+    for developer
+- github readme
+- 
