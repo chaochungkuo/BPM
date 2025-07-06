@@ -188,6 +188,7 @@ class Controller:
                                  config_loader=self.config_loader,
                                  verbose=self.verbose)
         self.process_template_inputs()
+        self.context["template_inputs"] = nested_flatten_dict(self.template_inputs)
         self.process_template_post_hooks()
         self.check_template_required_tools()
         
