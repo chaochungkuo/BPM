@@ -1,0 +1,31 @@
+[project]
+name = "bpm"
+version = "0.0.0"
+description = "BPM core CLI (skeleton)"
+channels = ["conda-forge"]
+platforms = ["linux-64", "osx-64", "osx-arm64"]
+
+[environments]
+default = { features = ["dev"] }
+
+[dependencies]
+python = ">=3.10,<3.13"
+
+[feature.dev.dependencies]
+pytest = ">=8"
+pytest-cov = ">=4.1"
+typer = ">=0.12"
+jinja2 = ">=3.1"
+pyyaml = ">=6.0"
+rich = ">=13.7"
+ruff = ">=0.5"
+black = ">=24.8"
+pip = "*"
+setuptools = ">=68"
+wheel = ">=0.41"
+
+[tasks]
+test = "pytest"
+lint = "ruff check ."
+fmt = "black ."
+fmt-check = "black --check ."

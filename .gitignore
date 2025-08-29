@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+*.egg-info/
+dist/
+build/
+
+# Coverage
+htmlcov/
+.coverage*
+.cache/
+
+# Editors
+.vscode/
+.idea/
+
+# Pixi / conda
+.venv/
+.env/
+.mamba/
+.conda/
+.pixi/
+pixi.lock
