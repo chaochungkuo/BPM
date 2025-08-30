@@ -1,0 +1,6 @@
+id: demo-brs
+name: "Demo BRS"
+description: "Minimal store for tests"
+version: "0.0.1"
+maintainer: "Test <test@example.com>"
+license: "MIT"

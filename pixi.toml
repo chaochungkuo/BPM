@@ -10,6 +10,7 @@ default = { features = ["dev"] }
 
 [dependencies]
 python = ">=3.10,<3.13"
+pyyaml = ">=6.0.2,<7"
 
 [feature.dev.dependencies]
 pytest = ">=8"
@@ -25,7 +26,8 @@ setuptools = ">=68"
 wheel = ">=0.41"
 
 [tasks]
-test = "pytest"
+dev-install = 'python -m pip install -e ".[dev]"'
+test = 'python -m pip install -e ".[dev]" && pytest'
 lint = "ruff check ."
 fmt = "black ."
 fmt-check = "black --check ."
