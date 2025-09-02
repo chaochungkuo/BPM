@@ -1,0 +1,4 @@
+hosts:
+  nextgen:
+    aliases: [nextgen1]
+    mount_prefix: "/mnt/nextgen/"

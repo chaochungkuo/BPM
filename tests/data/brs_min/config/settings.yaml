@@ -1,0 +1,6 @@
+schema_version: 1
+policy:
+  project_name:
+    example: "250901_Tumor_RNAseq_UKA"
+    regex: '^\d{6}_[A-Za-z0-9]+(?:_[A-Za-z0-9]+)*$'
+    message: "Use YYMMDD_Parts_Separated_By_Underscores"

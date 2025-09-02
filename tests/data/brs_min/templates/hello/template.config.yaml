@@ -1,0 +1,10 @@
+id: hello
+description: "Demo"
+params:
+  name: { type: str, cli: "--name", required: true }
+render:
+  into: "${ctx.project.name}/${ctx.template.id}/"
+  files:
+    - run.sh.j2 -> run.sh
+run:
+  entry: "run.sh"
