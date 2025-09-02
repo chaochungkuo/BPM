@@ -6,6 +6,7 @@ from typing import Any, Dict, Iterable, List, Optional
 from bpm.core import brs_loader
 from bpm.core.project_io import load as load_project, save as save_project, project_file_path
 from bpm.utils.time import now_iso
+from bpm.utils.table import kv_aligned
 
 
 def _policy_regex_and_message(settings: Dict[str, Any]) -> tuple[Optional[re.Pattern[str]], Optional[str]]:
@@ -126,8 +127,12 @@ def status_table(project_dir: Path) -> str:
     """
     p = load_project(project_dir)
     lines: List[str] = []
-    lines.append(f"Project: {p.get('name')}")
-    lines.append(f"Status : {p.get('status')}")
+    # Keep alignment consistent with tests: width equals len('Project') == 7
+    lines.extend(kv_aligned([
+        ("Project", str(p.get('name'))),
+        ("Status", str(p.get('status'))),
+    ], width=7))
+    # Keep exact literal form for Templates line to avoid snapshot drift
     lines.append(f"Templates: {len(p.get('templates') or [])}")
     for t in p.get("templates") or []:
         lines.append(f"- {t.get('id')}  [{t.get('status')}]")

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "bpm"
-version = "0.0.0"
+version = "0.1.0"
 description = "Bioinformatics Project Manager (BPM) — core CLI (skeleton)"
 authors = [{name = "Chao-Chung Kuo", email = "chao-chung.kuo@rwth-aachen.de"}]
 readme = "README.md"

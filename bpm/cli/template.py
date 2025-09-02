@@ -13,12 +13,19 @@ def render(
     project_dir: str = typer.Option(".", "--dir", help="Project directory (contains project.yaml)"),
     dry: bool = typer.Option(False, "--dry", help="Dry-run: only show plan, no changes"),
     param: list[str] = typer.Option(None, "--param", help="KEY=VALUE (can repeat)"),
+    out: str = typer.Option(None, "--out", help="Ad-hoc output directory (do not touch project.yaml)"),
 ):
     """
     Render a template into the project. Provide template params with --param KEY=VALUE.
     """
     try:
-        plan = svc.render(Path(project_dir).resolve(), template_id, params_kv=param, dry=dry)
+        plan = svc.render(
+            Path(project_dir).resolve(),
+            template_id,
+            params_kv=param,
+            dry=dry,
+            adhoc_out=Path(out).resolve() if out else None,
+        )
     except Exception as e:
         typer.secho(f"Error: {e}", err=True, fg=typer.colors.RED)
         raise typer.Exit(code=1)
@@ -27,7 +34,10 @@ def render(
         for action, src, dst in plan:
             typer.echo(f"{action:6}  {src or '-':40} -> {dst}")
     else:
-        typer.secho("[ok] Rendered.", fg=typer.colors.GREEN)
+        if out:
+            typer.secho("[ok] Rendered (ad-hoc).", fg=typer.colors.GREEN)
+        else:
+            typer.secho("[ok] Rendered.", fg=typer.colors.GREEN)
 
 
 @app.command("run")

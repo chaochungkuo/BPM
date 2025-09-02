@@ -66,7 +66,13 @@ def _build_plan(desc: Descriptor, ctx: Ctx) -> Tuple[List[PlanItem], Path, Path]
     Returns:
         (plan, template_root, target_dir)
     """
-    tpl_root = brs_loader.get_paths().templates_dir / desc.id
+    paths = brs_loader.get_paths()
+    tpl_root = paths.templates_dir / desc.id
+    if not tpl_root.exists():
+        # Support workflows by falling back to workflows/<id>
+        wf_root = paths.workflows_dir / desc.id
+        if wf_root.exists():
+            tpl_root = wf_root
     target_dir = _expand_render_into(desc, ctx)
     plan: List[PlanItem] = [PlanItem("mkdir", None, str(target_dir))]
 

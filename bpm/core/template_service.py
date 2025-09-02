@@ -1,8 +1,8 @@
 from __future__ import annotations
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Tuple, Optional
 
 from bpm.core import brs_loader
 from bpm.core.context import build as build_ctx
@@ -14,6 +14,7 @@ from bpm.core.project_io import load as load_project, save as save_project
 from bpm.core.publish_resolver import resolve_all as resolve_publish
 
 from bpm.io.exec import run_process
+from bpm.io.yamlio import safe_dump_yaml
 
 
 # ----------------------------- helpers -----------------------------
@@ -63,7 +64,14 @@ def _parse_cli_params(param_pairs: List[str]) -> Dict[str, str]:
 
 # ----------------------------- service API -----------------------------
 
-def render(project_dir: Path, template_id: str, *, params_kv: List[str] | None = None, dry: bool = False) -> List[Tuple[str, str | None, str]]:
+def render(
+    project_dir: Path,
+    template_id: str,
+    *,
+    params_kv: List[str] | None = None,
+    dry: bool = False,
+    adhoc_out: Optional[Path] = None,
+) -> List[Tuple[str, str | None, str]]:
     """
     Render a template into the project.
 
@@ -91,41 +99,72 @@ def render(project_dir: Path, template_id: str, *, params_kv: List[str] | None =
     brs_cfg = brs_loader.load_config()
     desc = load_desc(template_id)
 
-    # 2) load project; deps
-    project = load_project(project_dir)
-    missing = _check_dependencies(desc, project)
-    if missing:
-        raise ValueError(f"Missing required templates: {', '.join(missing)}")
+    # 2) load project; deps (skip deps in ad-hoc mode)
+    project = None if adhoc_out else load_project(project_dir)
+    if not adhoc_out:
+        missing = _check_dependencies(desc, project)
+        if missing:
+            raise ValueError(f"Missing required templates: {', '.join(missing)}")
 
     # 3) param resolution
     cli_params = _parse_cli_params(params_kv or [])
     # minimal ctx-like for interpolation during resolution
-    ctx_like = {
-        "project": SimpleNamespace(name=project["name"]),
-        "template": SimpleNamespace(id=template_id),
-        "params": {},
-    }
+    if project:
+        ctx_like = {
+            "project": SimpleNamespace(name=project["name"]),
+            "template": SimpleNamespace(id=template_id),
+            "params": {},
+        }
+    else:
+        # Ad-hoc: project is None; allow ctx interpolation for template id only
+        ctx_like = {
+            "project": SimpleNamespace(name=""),
+            "template": SimpleNamespace(id=template_id),
+            "params": {},
+        }
     final_params = resolve_params(desc, cli_params, project, ctx_like)
 
     # 4) build ctx and render
-    ctx = build_ctx(project, template_id, final_params, {"repo": brs_cfg.repo, "authors": brs_cfg.authors, "hosts": brs_cfg.hosts, "settings": brs_cfg.settings}, project_dir)
-    plan = jinja_render(desc, ctx, dry=dry)
+    # In ad-hoc mode, render into the provided out directory directly, ignoring desc.render_into
+    if adhoc_out:
+        target_cwd = Path(adhoc_out).resolve()
+        target_cwd.mkdir(parents=True, exist_ok=True)
+        # Override render_into to "." so files render directly under adhoc_out
+        desc_eff = replace(desc, render_into=".")
+        ctx = build_ctx(None, template_id, final_params, {"repo": brs_cfg.repo, "authors": brs_cfg.authors, "hosts": brs_cfg.hosts, "settings": brs_cfg.settings}, target_cwd)
+        plan = jinja_render(desc_eff, ctx, dry=dry)
+    else:
+        ctx = build_ctx(project, template_id, final_params, {"repo": brs_cfg.repo, "authors": brs_cfg.authors, "hosts": brs_cfg.hosts, "settings": brs_cfg.settings}, project_dir)
+        plan = jinja_render(desc, ctx, dry=dry)
 
     if dry:
         return [(p.action, p.src, p.dst) for p in plan]
 
-    # 5) hooks: post_render
-    if desc.hooks and desc.hooks.get("post_render"):
-        run_hooks(desc.hooks["post_render"], ctx)
+    # 5) hooks: post_render (skip in ad-hoc mode)
+    if not adhoc_out:
+        if desc.hooks and desc.hooks.get("post_render"):
+            run_hooks(desc.hooks["post_render"], ctx)
 
-    # 6) persist project state
-    entry = _ensure_template_entry(project, template_id)
-    entry["params"] = final_params
-    entry["status"] = "active"
-    # track store meta if you want (optional)
-    # entry["store_id"] = brs_cfg.repo.get("id")
-    project["status"] = "active"
-    save_project(project_dir, project)
+    # 6) persist project state or write ad-hoc meta
+    if adhoc_out:
+        # Write bpm.meta.yaml in the output folder with params + source info
+        meta = {
+            "source": {
+                "brs_id": brs_cfg.repo.get("id"),
+                "brs_version": brs_cfg.repo.get("version"),
+                "template_id": template_id,
+            },
+            "params": final_params,
+        }
+        safe_dump_yaml(Path(adhoc_out) / "bpm.meta.yaml", meta)
+    else:
+        entry = _ensure_template_entry(project, template_id)
+        entry["params"] = final_params
+        entry["status"] = "active"
+        # track store meta if you want (optional)
+        # entry["store_id"] = brs_cfg.repo.get("id")
+        project["status"] = "active"
+        save_project(project_dir, project)
 
     return [(p.action, p.src, p.dst) for p in plan]
 

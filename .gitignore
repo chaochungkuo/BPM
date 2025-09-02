@@ -1,26 +1,23 @@
-# Python
+# Byte-compiled / cache
 __pycache__/
-*.pyc
+*.py[cod]
 *.pyo
-*.pyd
 .pytest_cache/
+
+# Coverage
+.coverage*
+coverage.xml
+htmlcov/
+
+# Environments
+.venv/
+.pixi/
+
+# Packaging
 *.egg-info/
 dist/
 build/
 
-# Coverage
-htmlcov/
-.coverage*
-.cache/
+# OS files
+.DS_Store
 
-# Editors
-.vscode/
-.idea/
-
-# Pixi / conda
-.venv/
-.env/
-.mamba/
-.conda/
-.pixi/
-pixi.lock
