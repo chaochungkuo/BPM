@@ -3,28 +3,51 @@ from pathlib import Path
 import typer
 
 from bpm.core import template_service as svc
+from bpm.core import brs_loader
 
-app = typer.Typer(no_args_is_help=True, add_completion=False)
+app = typer.Typer(
+    no_args_is_help=True,
+    add_completion=False,
+    help=(
+        "Template commands.\n\n"
+        "Render templates (with param precedence: defaults < project < CLI),\n"
+        "run entries with hooks, and publish via resolvers."
+    ),
+)
+
+
+# Dynamic completion for template ids
+def _complete_template_ids(ctx, incomplete: str):
+    try:
+        p = brs_loader.get_paths().templates_dir
+        ids = [d.name for d in p.iterdir() if d.is_dir()]
+    except Exception:
+        ids = []
+    return [i for i in ids if i.startswith(incomplete)]
 
 
 @app.command("render")
 def render(
-    template_id: str = typer.Argument(..., help="Template id within the active BRS"),
-    project_dir: str = typer.Option(".", "--dir", help="Project directory (contains project.yaml)"),
+    template_id: str = typer.Argument(..., help="Template id within the active BRS", autocompletion=_complete_template_ids),
+    project_dir: Path = typer.Option(Path("."), "--dir", help="Project directory (contains project.yaml)"),
     dry: bool = typer.Option(False, "--dry", help="Dry-run: only show plan, no changes"),
     param: list[str] = typer.Option(None, "--param", help="KEY=VALUE (can repeat)"),
-    out: str = typer.Option(None, "--out", help="Ad-hoc output directory (do not touch project.yaml)"),
+    out: Path = typer.Option(None, "--out", help="Ad-hoc output directory (do not touch project.yaml)"),
 ):
     """
-    Render a template into the project. Provide template params with --param KEY=VALUE.
+    Render a template into the project (or to --out in ad‑hoc mode).
+
+    Notes:
+    - Param precedence: descriptor defaults < stored project params < CLI --param
+    - Ad‑hoc (with --out): skips hooks and project.yaml updates; writes bpm.meta.yaml
     """
     try:
         plan = svc.render(
-            Path(project_dir).resolve(),
+            project_dir.resolve(),
             template_id,
             params_kv=param,
             dry=dry,
-            adhoc_out=Path(out).resolve() if out else None,
+            adhoc_out=out.resolve() if out else None,
         )
     except Exception as e:
         typer.secho(f"Error: {e}", err=True, fg=typer.colors.RED)
@@ -42,14 +65,14 @@ def render(
 
 @app.command("run")
 def run(
-    template_id: str = typer.Argument(..., help="Template id within the active BRS"),
-    project_dir: str = typer.Option(".", "--dir", help="Project directory (contains project.yaml)"),
+    template_id: str = typer.Argument(..., help="Template id within the active BRS", autocompletion=_complete_template_ids),
+    project_dir: Path = typer.Option(Path("."), "--dir", help="Project directory (contains project.yaml)"),
 ):
     """
-    Execute the template's run entry (e.g., run.sh) with hooks.
+    Execute the template's run entry (e.g., run.sh) with pre/post hooks.
     """
     try:
-        svc.run(Path(project_dir).resolve(), template_id)
+        svc.run(project_dir.resolve(), template_id)
     except Exception as e:
         typer.secho(f"Error: {e}", err=True, fg=typer.colors.RED)
         raise typer.Exit(code=1)
@@ -58,14 +81,14 @@ def run(
 
 @app.command("publish")
 def publish(
-    template_id: str = typer.Argument(..., help="Template id within the active BRS"),
-    project_dir: str = typer.Option(".", "--dir", help="Project directory (contains project.yaml)"),
+    template_id: str = typer.Argument(..., help="Template id within the active BRS", autocompletion=_complete_template_ids),
+    project_dir: Path = typer.Option(Path("."), "--dir", help="Project directory (contains project.yaml)"),
 ):
     """
-    Run all publish resolvers defined by the template and persist results.
+    Run all publish resolvers defined by the template and persist results into project.yaml.
     """
     try:
-        pub = svc.publish(Path(project_dir).resolve(), template_id)
+        pub = svc.publish(project_dir.resolve(), template_id)
     except Exception as e:
         typer.secho(f"Error: {e}", err=True, fg=typer.colors.RED)
         raise typer.Exit(code=1)

@@ -4,7 +4,15 @@ from pathlib import Path
 
 from bpm.core import project_service as svc
 
-app = typer.Typer(no_args_is_help=True, add_completion=False)
+app = typer.Typer(
+    no_args_is_help=True,
+    add_completion=False,
+    help=(
+        "Project commands.\n\n"
+        "Use 'init' to create a new project directory (writes project.yaml),\n"
+        "then 'info' and 'status' to inspect it."
+    ),
+)
 
 
 @app.command("init")
@@ -15,7 +23,11 @@ def init(
     cwd: str = typer.Option(".", "--cwd", help="Directory to create the project in"),
 ):
     """
-    Create a new project directory and write project.yaml.
+    Create a new project folder and write project.yaml using the active BRS policy.
+
+    Examples:
+    - bpm project init 250901_Demo_UKA --project-path nextgen:/projects/250901_Demo_UKA
+    - bpm project init MyProj --project-path local:/abs/path --author ckuo,lgan --cwd /tmp
     """
     try:
         pdir = svc.init(Path(cwd).resolve(), project_name, project_path, authors)
@@ -36,7 +48,7 @@ def info(
     project_dir: str = typer.Option(".", "--dir", help="Project directory (contains project.yaml)")
 ):
     """
-    Show raw project information (YAML-like dict).
+    Show a concise summary of project.yaml fields (name, status, authors, templates).
     """
     try:
         data = svc.info(Path(project_dir).resolve())
@@ -56,7 +68,7 @@ def status(
     project_dir: str = typer.Option(".", "--dir", help="Project directory (contains project.yaml)")
 ):
     """
-    Display a simple status summary.
+    Display a simple status view: project name/status and template entries with statuses.
     """
     try:
         s = svc.status_table(Path(project_dir).resolve())

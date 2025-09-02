@@ -3,10 +3,19 @@ from pathlib import Path
 import typer
 
 from bpm.core import store_registry as reg
+from bpm.core import env
 import os
 from bpm.io.yamlio import safe_load_yaml
 
-app = typer.Typer(no_args_is_help=True, add_completion=False)
+app = typer.Typer(
+    no_args_is_help=True,
+    add_completion=False,
+    help=(
+        "Resource (BRS store) commands.\n\n"
+        "Add local BRS folders to the cache, switch the active store,\n"
+        "list existing entries, inspect details, or remove an entry."
+    ),
+)
 
 
 def _stores_yaml_path() -> Path:
@@ -34,14 +43,17 @@ def _load_stores_yaml() -> dict:
 
 @app.command("add")
 def add(
-    source: str = typer.Argument(..., help="Local path or git URL of a BRS"),
+    source: Path = typer.Argument(..., help="Local path or git URL of a BRS"),
     activate: bool = typer.Option(False, "--activate/--no-activate", help="Activate after adding"),
 ):
     """
-    Add a BRS to the cache registry (and optionally activate it).
+    Add a BRS to the cache registry (local path). Optionally activate it immediately.
+
+    Example:
+    - bpm resource add ./my-brs --activate
     """
     try:
-        rec = reg.add(source, activate=activate)
+        rec = reg.add(str(source), activate=activate)
         # Support both dataclass (StoreRecord) and dict returns
         rec_id = getattr(rec, "id", None)
         if rec_id is None and isinstance(rec, dict):
@@ -61,7 +73,11 @@ def add(
 
 @app.command("activate")
 def activate(
-    store_id: str = typer.Argument(..., help="Store id to activate (see `bpm resource list`)"),
+    store_id: str = typer.Argument(
+        ..., 
+        help="Store id to activate (see `bpm resource list`)", 
+        autocompletion=lambda ctx, args, incomplete: [sid for sid in (env.load_store_index().stores or {}).keys() if str(sid).startswith(incomplete)],
+    ),
 ):
     """
     Set the active BRS (only one active at a time).
@@ -76,10 +92,14 @@ def activate(
 
 @app.command("remove")
 def remove(
-    store_id: str = typer.Argument(..., help="Store id to remove from cache registry"),
+    store_id: str = typer.Argument(
+        ..., 
+        help="Store id to remove from cache registry", 
+        autocompletion=lambda ctx, args, incomplete: [sid for sid in (env.load_store_index().stores or {}).keys() if str(sid).startswith(incomplete)],
+    ),
 ):
     """
-    Remove a BRS from the registry. (Does not delete the source directory.)
+    Remove a BRS from the registry. Non-destructive: does not delete the original source.
     """
     try:
         reg.remove(store_id)
@@ -92,7 +112,7 @@ def remove(
 @app.command("list")
 def list_():
     """
-    List cached BRS stores. Active store is marked with '*'.
+    List cached BRS stores; the active store is marked with '*'.
     """
     data = _load_stores_yaml()
     active = data.get("active")
@@ -114,10 +134,15 @@ def list_():
 
 @app.command("info")
 def info(
-    store_id: str = typer.Option(None, "--id", help="Specific store id (default: active store)"),
+    store_id: str = typer.Option(
+        None, 
+        "--id", 
+        help="Specific store id (default: active store)", 
+        autocompletion=lambda ctx, args, incomplete: [sid for sid in (env.load_store_index().stores or {}).keys() if str(sid).startswith(incomplete)],
+    ),
 ):
     """
-    Show details about a store. Defaults to the active store.
+    Show details for a store (id, source, cached_path). Defaults to the active store.
     """
     data = _load_stores_yaml()
     active = data.get("active")

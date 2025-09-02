@@ -1,8 +1,53 @@
-# BPM
+🔬 Bioinformatics Project Manager (BPM)
 
-Minimal, test-driven skeleton for a Bio Project Manager (BPM) CLI. Implements
-project scaffolding, template rendering/running/publish, resource stores, and
-workflows. Everything is covered by CLI/unit tests and runnable via Pixi.
+Bioinformatics research is diverse: every dataset has quirks, and labs juggle a mix of
+scripts, pipelines, and frameworks. This flexibility is powerful, but it also creates
+problems:
+- Projects are hard to reproduce.
+- Scripts get copied, modified, and lost.
+- Sharing across people or facilities means reinventing the same work.
+
+BPM (Bioinformatics Project Manager) was created to solve this gap.
+
+✅ What BPM is
+
+BPM is a lightweight, Python-based command-line tool that provides a management layer for
+bioinformatics projects. It brings order and reusability without forcing you into a single
+framework.
+
+At its core:
+- BPM = the engine (stable CLI for project and template management).
+- BRS = Bioinformatics Resource Store (repositories of templates, workflows, hooks, and
+  resolvers customized for your facility or personal work).
+
+🚫 What BPM is not
+- BPM is not a workflow execution engine (like Nextflow, Snakemake, or Cromwell). It
+  doesn’t replace them — it wraps and organizes them.
+- BPM is not a LIMS (Laboratory Information Management System). It doesn’t manage samples,
+  sequencing machines, or lab metadata — it focuses on the analysis side.
+- BPM is not a central registry or cloud service. All state lives in plain files
+  (project.yaml, stores.yaml) in your projects and cache, under your full control.
+
+Instead, BPM complements these tools:
+- You can use BPM to organize projects, then call Nextflow/Snakemake inside BPM templates.
+- You can keep your facility-specific environments, scripts, and settings in a BRS and
+  reuse them across projects.
+- You can still log everything into a LIMS or database if you want — BPM just keeps your
+  analysis side reproducible and portable.
+
+Why it’s useful
+- Reusability: Templates can be shared and rerun across datasets with one command.
+- Consistency: Project naming policies and status tracking make archiving and collaboration
+  easier.
+- Flexibility: Each group or user can keep their own BRS — no central server required.
+- Transparency: Everything is stored in YAML; version control works out of the box.
+- Lifecycle management: Track project and template states automatically.
+- Hooks & resolvers: Automate environment-specific paths and post-processing steps.
+- Ad-hoc mode: Run templates outside BPM projects when you just need scripts.
+
+✨ In short: BPM doesn’t replace your workflow engine, pipelines, or LIMS. Instead, it sits
+one layer above them, helping you organize, reuse, and share your bioinformatics projects in
+a clean and reproducible way.
 
 ## Quickstart
 
@@ -19,6 +64,16 @@ pixi run fmt    # black
 - `bpm project …`: init/info/status for a project directory
 - `bpm template …`: render/run/publish templates from the active BRS
 - `bpm workflow …`: render/run workflows from the active BRS
+
+## Shell completion
+
+Enable shell completion for the `bpm` command.
+
+- Zsh: `echo 'eval "$( _BPM_COMPLETE=zsh_source bpm )"' >> ~/.zshrc && exec zsh`
+- Bash: `echo 'eval "$( _BPM_COMPLETE=bash_source bpm )"' >> ~/.bashrc && exec bash`
+- Fish: `echo 'eval (env _BPM_COMPLETE=fish_source bpm)' >> ~/.config/fish/config.fish && exec fish`
+
+Or use Typer helper once completion is enabled: `bpm --install-completion`.
 
 ### Resource
 
