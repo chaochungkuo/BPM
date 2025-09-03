@@ -50,8 +50,7 @@ def test_workflow_render_and_run(tmpdir, monkeypatch):
 
     # init a project directory
     proj_name = "250901_Workflow_UKA"
-    proj_path = "nextgen:/projects/250901_Workflow_UKA"
-    r = runner.invoke(root_app, ["project", "init", proj_name, "--project-path", proj_path, "--cwd", str(tmpdir)])
+    r = runner.invoke(root_app, ["project", "init", proj_name, "--outdir", str(tmpdir), "--host", "nextgen"])
     assert r.exit_code == 0, r.output
 
     pdir = tmpdir / proj_name
@@ -71,4 +70,3 @@ def test_workflow_render_and_run(tmpdir, monkeypatch):
     ran = tmpdir / proj_name / proj_name / "clean" / "ran.txt"
     assert ran.exists()
     assert "running clean" in ran.read_text()
-

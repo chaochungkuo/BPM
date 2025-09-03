@@ -1,6 +1,7 @@
 from __future__ import annotations
 from pathlib import Path
 import typer
+from typing import Optional
 
 from bpm.core import store_registry as reg
 from bpm.core import env
@@ -110,7 +111,15 @@ def remove(
 
 
 @app.command("list")
-def list_():
+def list_(
+    format: str = typer.Option(
+        "plain",
+        "--format",
+        "-f",
+        help="Output format: plain (default), table, or json",
+        show_default=True,
+    )
+):
     """
     List cached BRS stores; the active store is marked with '*'.
     """
@@ -122,14 +131,58 @@ def list_():
         typer.echo("(no stores)")
         raise typer.Exit(code=0)
 
-    # stores is a dict: id -> record
+    fmt = (format or "plain").lower()
+
+    # plain (backward compatible, used by tests)
+    if fmt == "plain":
+        for sid in sorted(stores.keys()):
+            rec = stores.get(sid) or {}
+            mark = "*" if sid == active else " "
+            # YAML uses 'cache_path' key
+            typer.echo(
+                f"{mark} {sid}  src={rec.get('source')}  cached={rec.get('cache_path')}"
+            )
+        return
+
+    if fmt == "json":
+        import json
+        out = {
+            "active": active,
+            "stores": {
+                sid: {
+                    "id": sid,
+                    "source": (stores.get(sid) or {}).get("source"),
+                    "cache_path": (stores.get(sid) or {}).get("cache_path"),
+                }
+                for sid in sorted(stores.keys())
+            },
+        }
+        typer.echo(json.dumps(out, indent=2))
+        return
+
+    # table format (requires rich)
+    try:
+        from rich.console import Console
+        from rich.table import Table
+    except Exception:
+        # fallback to plain if rich missing
+        for sid in sorted(stores.keys()):
+            rec = stores.get(sid) or {}
+            mark = "*" if sid == active else " "
+            typer.echo(
+                f"{mark} {sid}  src={rec.get('source')}  cached={rec.get('cache_path')}"
+            )
+        return
+
+    table = Table(title="BRS Stores")
+    table.add_column("Active", justify="center", width=6)
+    table.add_column("ID", style="cyan", no_wrap=True)
+    table.add_column("Source", overflow="fold")
+    table.add_column("Cached", overflow="fold")
     for sid in sorted(stores.keys()):
         rec = stores.get(sid) or {}
-        mark = "*" if sid == active else " "
-        # YAML uses 'cache_path' key
-        typer.echo(
-            f"{mark} {sid}  src={rec.get('source')}  cached={rec.get('cache_path')}"
-        )
+        table.add_row("*" if sid == active else "", sid, str(rec.get("source")), str(rec.get("cache_path")))
+    Console().print(table)
 
 
 @app.command("info")

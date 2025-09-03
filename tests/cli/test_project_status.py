@@ -30,8 +30,7 @@ def test_project_info_and_status(tmpdir, monkeypatch):
 
     # init
     name = "250901_Test_UKA"
-    path = "nextgen:/projects/250901_Test_UKA"
-    r = runner.invoke(project_app, ["init", name, "--project-path", path, "--cwd", str(tmpdir)])
+    r = runner.invoke(project_app, ["init", name, "--outdir", str(tmpdir), "--host", "nextgen"])
     assert r.exit_code == 0, r.output
 
     # info

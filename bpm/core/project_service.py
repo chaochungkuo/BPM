@@ -1,6 +1,7 @@
 from __future__ import annotations
 import re
 from pathlib import Path
+import socket
 from typing import Any, Dict, Iterable, List, Optional
 
 from bpm.core import brs_loader
@@ -49,11 +50,37 @@ def _expand_authors(author_ids: Iterable[str], brs_config: Dict[str, Any]) -> Li
     return expanded
 
 
+def _resolve_host_key(hosts_cfg: dict, settings_cfg: dict) -> str:
+    """
+    Determine the host key to use for host-aware paths.
+
+    Order:
+      1) Match system short hostname against hosts.<key> or hosts.<key>.aliases
+      2) settings.default_host if present in hosts
+      3) 'local'
+    """
+    short = socket.gethostname().split(".")[0]
+    hosts_map = (hosts_cfg or {}).get("hosts") or {}
+    # direct match on key
+    if short in hosts_map:
+        return short
+    # match in aliases
+    for key, entry in hosts_map.items():
+        aliases = (entry or {}).get("aliases") or []
+        if isinstance(aliases, list) and short in aliases:
+            return key
+    # settings.default_host
+    default_host = (settings_cfg or {}).get("default_host")
+    if default_host and default_host in hosts_map:
+        return default_host
+    return "local"
+
+
 def init(
-    cwd: Path,
+    outdir: Path,
     project_name: str,
-    project_path: str,
     author_ids_csv: str,
+    host_key: str | None = None,
 ) -> Path:
     """
     Initialize a new project folder and write project.yaml.
@@ -83,13 +110,18 @@ def init(
         hint = message or "Project name violates policy regex."
         raise ValueError(f"Invalid project name '{project_name}'. {hint}")
 
-    project_dir = cwd / project_name
+    project_dir = outdir / project_name
     if project_file_path(project_dir).exists():
         raise ValueError(f"Project already exists: {project_dir}")
 
     # Expand authors
     author_ids = [s.strip() for s in (author_ids_csv or "").split(",") if s.strip()]
     authors = _expand_authors(author_ids, {"authors": brs_cfg.authors})
+
+    # Determine host-aware project_path from local absolute path
+    abs_posix = project_dir.resolve().as_posix()
+    hk = host_key or _resolve_host_key({"hosts": brs_cfg.hosts.get("hosts") if isinstance(brs_cfg.hosts, dict) else {}}, brs_cfg.settings)
+    project_path = f"{hk}:{abs_posix}"
 
     # Minimal project dictionary
     project = {

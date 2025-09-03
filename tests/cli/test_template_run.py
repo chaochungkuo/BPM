@@ -50,8 +50,7 @@ def test_template_run_marks_completed(tmpdir, monkeypatch):
     reg.add(str(src), activate=True)
 
     name = "250901_Run_UKA"
-    path = "nextgen:/projects/250901_Run_UKA"
-    r = runner.invoke(root_app, ["project", "init", name, "--project-path", path, "--cwd", str(tmpdir)])
+    r = runner.invoke(root_app, ["project", "init", name, "--outdir", str(tmpdir), "--host", "nextgen"])
     assert r.exit_code == 0
 
     # render first (to create folder/entry)

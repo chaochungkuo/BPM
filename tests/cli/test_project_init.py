@@ -41,10 +41,9 @@ def test_project_init_happy_path(tmpdir, monkeypatch):
 
     # init a project
     proj_name = "250901_Tumor_RNAseq_UKA"
-    proj_path = "nextgen:/projects/250901_Tumor_RNAseq_UKA"
     result = runner.invoke(
         project_app,
-        ["init", proj_name, "--project-path", proj_path, "--author", "ckuo,lgan", "--cwd", str(tmpdir)],
+        ["init", proj_name, "--author", "ckuo,lgan", "--outdir", str(tmpdir), "--host", "nextgen"],
     )
     assert result.exit_code == 0, result.output
     assert "[ok] Created project at:" in result.output
@@ -53,7 +52,8 @@ def test_project_init_happy_path(tmpdir, monkeypatch):
     pdir = tmpdir / proj_name
     data = load_project(pdir)
     assert data["name"] == proj_name
-    assert data["project_path"] == proj_path
+    expected = f"nextgen:{(tmpdir / proj_name).resolve().as_posix()}"
+    assert data["project_path"] == expected
     assert data["status"] == "initiated"
     assert [a["id"] for a in data["authors"]] == ["ckuo", "lgan"]
 
@@ -65,9 +65,6 @@ def test_project_init_rejects_bad_name(tmpdir, monkeypatch):
     reg.add(str(src), activate=True)
 
     bad_name = "2025-09-01 Bad Name"
-    result = runner.invoke(
-        project_app,
-        ["init", bad_name, "--project-path", "nextgen:/x", "--cwd", str(tmpdir)],
-    )
+    result = runner.invoke(project_app, ["init", bad_name, "--outdir", str(tmpdir)])
     assert result.exit_code != 0
     assert "Invalid project name" in result.output

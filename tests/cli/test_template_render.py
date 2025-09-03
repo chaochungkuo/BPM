@@ -51,8 +51,7 @@ def test_template_render_writes_files_and_updates_project(tmpdir, monkeypatch):
 
     # init a project
     proj_name = "250901_Render_UKA"
-    proj_path = "nextgen:/projects/250901_Render_UKA"
-    r = runner.invoke(root_app, ["project", "init", proj_name, "--project-path", proj_path, "--cwd", str(tmpdir)])
+    r = runner.invoke(root_app, ["project", "init", proj_name, "--outdir", str(tmpdir), "--host", "nextgen"])
     assert r.exit_code == 0, r.output
 
     # render

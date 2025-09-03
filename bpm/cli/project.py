@@ -18,9 +18,9 @@ app = typer.Typer(
 @app.command("init")
 def init(
     project_name: str = typer.Argument(..., help="Name of the project (policy enforced by BRS)."),
-    project_path: str = typer.Option(..., "--project-path", help="Host-aware path (e.g., nextgen:/projects/NAME)"),
+    outdir: Path = typer.Option(Path("."), "--outdir", help="Directory to create the project in"),
     authors: str = typer.Option("", "--author", help="Comma-separated author ids (e.g., ckuo,lgan)"),
-    cwd: str = typer.Option(".", "--cwd", help="Directory to create the project in"),
+    host: str = typer.Option(None, "--host", help="Explicit host key to record in project_path (overrides auto-detect)"),
 ):
     """
     Create a new project folder and write project.yaml using the active BRS policy.
@@ -30,7 +30,7 @@ def init(
     - bpm project init MyProj --project-path local:/abs/path --author ckuo,lgan --cwd /tmp
     """
     try:
-        pdir = svc.init(Path(cwd).resolve(), project_name, project_path, authors)
+        pdir = svc.init(Path(outdir).resolve(), project_name, authors, host)
     except ValueError as e:
         # Validation errors (e.g., name policy) → friendly message
         typer.secho(f"Error: {e}", err=True, fg=typer.colors.RED)
@@ -45,22 +45,69 @@ def init(
 
 @app.command("info")
 def info(
-    project_dir: str = typer.Option(".", "--dir", help="Project directory (contains project.yaml)")
+    project_dir: Path = typer.Option(Path("."), "--dir", help="Project directory (contains project.yaml)"),
+    format: str = typer.Option(
+        "plain",
+        "--format",
+        "-f",
+        help="Output format: plain (default), table, or json",
+        show_default=True,
+    ),
 ):
     """
-    Show a concise summary of project.yaml fields (name, status, authors, templates).
+    Show a summary of project.yaml (name, status, authors, templates).
     """
     try:
-        data = svc.info(Path(project_dir).resolve())
+        data = svc.info(project_dir.resolve())
     except FileNotFoundError as e:
         typer.secho(f"Error: {e}", err=True, fg=typer.colors.RED)
         raise typer.Exit(code=1)
 
-    # Minimal pretty print; we keep YAML dumping out of CLI for now.
-    typer.echo(f"name: {data.get('name')}")
-    typer.echo(f"status: {data.get('status')}")
-    typer.echo(f"authors: {[a.get('id') for a in (data.get('authors') or [])]}")
-    typer.echo(f"templates: {[t.get('id') for t in (data.get('templates') or [])]}")
+    name = data.get("name")
+    status = data.get("status")
+    authors = [a.get("id") for a in (data.get("authors") or [])]
+    templates = [t.get("id") for t in (data.get("templates") or [])]
+
+    fmt = (format or "plain").lower()
+
+    if fmt == "json":
+        import json
+
+        typer.echo(
+            json.dumps(
+                {
+                    "name": name,
+                    "status": status,
+                    "authors": authors,
+                    "templates": templates,
+                },
+                indent=2,
+            )
+        )
+        return
+
+    if fmt == "table":
+        try:
+            from rich.console import Console
+            from rich.table import Table
+        except Exception:
+            fmt = "plain"  # fallback
+        else:
+            table = Table(title="Project Info")
+            table.add_column("Key", style="bold", no_wrap=True)
+            table.add_column("Value")
+            table.add_row("Name", str(name))
+            table.add_row("Status", str(status))
+            table.add_row("Authors", ", ".join(map(str, authors)))
+            table.add_row("Templates", ", ".join(map(str, templates)))
+            Console().print(table)
+            return
+
+    # plain (default; preserves existing test expectations)
+    typer.echo(f"name: {name}")
+    typer.echo(f"status: {status}")
+    typer.echo(f"authors: {authors}")
+    typer.echo(f"templates: {templates}")
 
 
 @app.command("status")

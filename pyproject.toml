@@ -38,3 +38,6 @@ target-version = "py310"
 
 [project.scripts]
 bpm = "bpm.cli.main:app"
+
+[tool.setuptools.packages.find]
+include = ["bpm*"]
