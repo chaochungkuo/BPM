@@ -2,6 +2,7 @@
 title: File Formats
 parent: Reference
 nav_order: 1
+has_toc: true
 ---
 
 # File Formats
@@ -14,4 +15,3 @@ nav_order: 1
 
 ## template_config.yaml
 - id, description, params, render.into, render.files, run.entry, publish, hooks
-

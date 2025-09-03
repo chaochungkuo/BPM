@@ -2,6 +2,7 @@
 title: bpm resource
 parent: CLI
 nav_order: 2
+has_toc: true
 ---
 
 # bpm resource
@@ -15,4 +16,3 @@ bpm resource info
 bpm resource update --all
 bpm resource remove <id>
 ```
-

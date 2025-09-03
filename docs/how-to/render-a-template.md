@@ -2,6 +2,7 @@
 title: Render a Template
 parent: How-To
 nav_order: 1
+has_toc: true
 ---
 
 # Render a Template
@@ -20,4 +21,3 @@ bpm template render --out /tmp/out --param "bcl_dir=/data/BCL" demux_bclconvert
 ```
 
 In ad‑hoc mode, files are written directly to `--out`.
-

@@ -2,6 +2,7 @@
 title: Troubleshooting
 nav_order: 9
 render_with_liquid: false
+has_toc: true
 ---
 
 # Troubleshooting

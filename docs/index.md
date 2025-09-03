@@ -1,6 +1,7 @@
 ---
 title: Home
 nav_order: 1
+has_toc: true
 ---
 
 # BPM
@@ -32,4 +33,3 @@ bpm template publish demux_bclconvert
 - Works alongside Nextflow/Snakemake; keeps state in plain files (project.yaml, stores.yaml).
 
 Continue with Getting Started to learn the basics.
-

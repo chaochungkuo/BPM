@@ -2,6 +2,7 @@
 title: Projects & Paths
 parent: Concepts
 nav_order: 1
+has_toc: true
 ---
 
 # Projects & Paths
@@ -13,4 +14,3 @@ nav_order: 1
 Key files:
 - `project.yaml` (in project directory)
 - `stores.yaml` (in cache: ~/.bpm_cache/stores.yaml)
-

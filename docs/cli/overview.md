@@ -2,6 +2,7 @@
 title: CLI Overview
 parent: CLI
 nav_order: 1
+has_toc: true
 ---
 
 # CLI Overview
@@ -14,4 +15,3 @@ Top-level commands:
 - `bpm workflow` — render/run workflows (if present in a BRS).
 
 Use `--help` on any command for details.
-

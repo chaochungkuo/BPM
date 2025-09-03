@@ -1,6 +1,7 @@
 ---
 title: BRS
-nav_order: 5
+nav_order: 7
+has_toc: true
 ---
 
 # Bioinformatics Resource Stores (BRS)
@@ -11,4 +12,3 @@ nav_order: 5
 
 Recommended layout:
 - `repo.yaml`, `config/`, `templates/`, `workflows/`, `hooks/`, `resolvers/`
-

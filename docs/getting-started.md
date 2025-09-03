@@ -1,6 +1,7 @@
 ---
 title: Getting Started
 nav_order: 2
+has_toc: true
 ---
 
 # Getting Started
@@ -36,4 +37,3 @@ bpm template publish demux_bclconvert
 ```
 
 See Concepts for key ideas and CLI for command help.
-

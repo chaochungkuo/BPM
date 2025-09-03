@@ -2,6 +2,7 @@
 title: bpm template
 parent: CLI
 nav_order: 3
+has_toc: true
 ---
 
 # bpm template
@@ -19,4 +20,3 @@ bpm template run demux_bclconvert
 # Publish resolvers (e.g., FASTQ_dir, multiqc_report)
 bpm template publish demux_bclconvert
 ```
-
