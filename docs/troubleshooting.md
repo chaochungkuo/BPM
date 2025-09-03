@@ -7,7 +7,9 @@ render_with_liquid: false
 # Troubleshooting
 
 ## Jinja Errors (e.g., Missing end of comment tag)
+{% raw %}
 - Check for unclosed `{# ... #}` or mismatched `{% %}`.
+{% endraw %}
 - Renderer now surfaces file:line to locate issues.
 
 ## Missing Tools
