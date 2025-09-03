@@ -3,6 +3,10 @@ description: Bioinformatics Project Manager documentation
 remote_theme: just-the-docs/just-the-docs
 color_scheme: light
 search_enabled: true
+url: https://chaochungkuo.github.io
+baseurl: /BPM
+plugins:
+  - jekyll-remote-theme
 aux_links:
   GitHub:
     - https://github.com/chaochungkuo/BPM
@@ -17,4 +21,3 @@ callouts:
   important:
     title: Important
     color: red
-
