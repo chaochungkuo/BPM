@@ -24,14 +24,9 @@ def _import_resolver(dotted: str):
       - 'resolvers.my_pub'         -> calls 'main'
       - 'resolvers.my_pub:compute' -> calls 'compute'
     """
-    if ":" in dotted:
-        module, func = dotted.split(":", 1)
-        module, func = module.strip(), func.strip()
-    else:
-        module, func = dotted.strip(), "main"
-
+    dotted = dotted.strip()
     brs_root = brs_loader.get_paths().root
-    top_pkg = module.split(".", 1)[0] if "." in module else module
+    top_pkg = dotted.split(".", 1)[0]
     _purge_module_prefix(top_pkg)
 
     sys_path_added = False
@@ -39,10 +34,38 @@ def _import_resolver(dotted: str):
         sys.path.insert(0, str(brs_root))
         sys_path_added = True
     try:
-        mod = importlib.import_module(module)
-        fn = getattr(mod, func, None)
+        # Case 1: explicit module:function via colon
+        if ":" in dotted:
+            module, func = [s.strip() for s in dotted.split(":", 1)]
+            mod = importlib.import_module(module)
+            fn = getattr(mod, func, None)
+            if fn is None:
+                raise AttributeError(f"Function '{func}' not found in module '{module}'")
+            return fn
+
+        # Case 2: try import dotted as a module and use main
+        try:
+            mod = importlib.import_module(dotted)
+            fn = getattr(mod, "main", None)
+            if fn is not None:
+                return fn
+        except Exception:
+            pass
+
+        # Case 3: treat last component as function name
+        if "." in dotted:
+            module, func = dotted.rsplit(".", 1)
+            mod = importlib.import_module(module)
+            fn = getattr(mod, func, None)
+            if fn is None:
+                raise AttributeError(f"Function '{func}' not found in module '{module}'")
+            return fn
+
+        # Case 4: bare module name → main
+        mod = importlib.import_module(dotted)
+        fn = getattr(mod, "main", None)
         if fn is None:
-            raise AttributeError(f"Function '{func}' not found in module '{module}'")
+            raise AttributeError(f"Function 'main' not found in module '{dotted}'")
         return fn
     finally:
         if sys_path_added:

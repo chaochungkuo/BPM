@@ -4,6 +4,7 @@ import typer
 
 from bpm.core import template_service as svc
 from bpm.core import brs_loader
+from bpm.core.descriptor_loader import load as load_desc
 
 app = typer.Typer(
     no_args_is_help=True,
@@ -93,3 +94,69 @@ def publish(
         typer.secho(f"Error: {e}", err=True, fg=typer.colors.RED)
         raise typer.Exit(code=1)
     typer.echo(str(pub))
+
+
+@app.command("list")
+def list_templates(
+    format: str = typer.Option(
+        "plain",
+        "--format",
+        "-f",
+        help="Output format: plain (default), table, or json",
+        show_default=True,
+    ),
+):
+    """
+    Show all available templates in the active BRS.
+    """
+    try:
+        tdir = brs_loader.get_paths().templates_dir
+    except Exception as e:
+        typer.secho(f"Error: {e}", err=True, fg=typer.colors.RED)
+        raise typer.Exit(code=1)
+
+    items = []
+    if tdir.exists():
+        for d in sorted([p for p in tdir.iterdir() if p.is_dir()]):
+            tid = d.name
+            try:
+                desc = load_desc(tid)
+                items.append({"id": desc.id, "description": desc.description or ""})
+            except Exception:
+                # Skip invalid template folders silently
+                continue
+
+    if not items:
+        typer.echo("(no templates)")
+        raise typer.Exit(code=0)
+
+    fmt = (format or "plain").lower()
+    if fmt == "json":
+        import json
+
+        typer.echo(json.dumps(items, indent=2))
+        return
+
+    if fmt == "table":
+        try:
+            from rich.console import Console
+            from rich.table import Table
+        except Exception:
+            fmt = "plain"
+        else:
+            table = Table(title="Templates (Active BRS)")
+            table.add_column("ID", style="cyan", no_wrap=True)
+            table.add_column("Description", overflow="fold")
+            for it in items:
+                table.add_row(str(it["id"]), str(it.get("description", "")))
+            Console().print(table)
+            return
+
+    # plain output
+    for it in items:
+        did = it["id"]
+        desc = it.get("description", "")
+        if desc:
+            typer.echo(f"{did} - {desc}")
+        else:
+            typer.echo(did)

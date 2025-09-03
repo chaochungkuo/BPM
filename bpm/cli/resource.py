@@ -220,3 +220,80 @@ def info(
         typer.echo("active: true")
     else:
         typer.echo("active: false")
+
+
+@app.command("update")
+def update_cmd(
+    store_id: Optional[str] = typer.Option(
+        None,
+        "--id",
+        help="Specific store id (default: active store)",
+        autocompletion=lambda ctx, args, incomplete: [sid for sid in (env.load_store_index().stores or {}).keys() if str(sid).startswith(incomplete)],
+    ),
+    all: bool = typer.Option(
+        False, "--all", help="Update all stores instead of a single one"
+    ),
+    force: bool = typer.Option(
+        False, "--force/--no-force", help="Force refresh even if version unchanged"
+    ),
+    check: bool = typer.Option(
+        False, "--check/--no-check", help="Dry-run: show what would change without modifying cache"
+    ),
+):
+    """
+    Update cached BRS store(s) from their source directory.
+
+    - Default: update the active store (or --id to specify).
+    - --all: update every registered store.
+    - --force: refresh even if versions match.
+    - --check: dry-run; prints status without changing anything.
+    """
+    from bpm.core import store_registry as reg
+
+    idx = env.load_store_index()
+    targets: list[str]
+    if all:
+        targets = sorted((idx.stores or {}).keys())
+        if not targets:
+            typer.echo("(no stores)")
+            raise typer.Exit(code=0)
+    else:
+        sid = store_id or idx.active
+        if not sid:
+            typer.secho("Error: no active store and no --id given", err=True, fg=typer.colors.RED)
+            raise typer.Exit(code=1)
+        targets = [sid]
+
+    for sid in targets:
+        # Probe cache vs source versions
+        try:
+            cache_ver, src_ver, needs = reg.probe_update(sid)
+        except Exception as e:
+            typer.secho(f"Error probing {sid}: {e}", err=True, fg=typer.colors.RED)
+            continue
+
+        if check:
+            if src_ver is None:
+                typer.echo(f"{sid}: source missing or invalid; cache={cache_ver}")
+            elif needs or force:
+                typer.echo(f"{sid}: update available {cache_ver} -> {src_ver}")
+            else:
+                typer.echo(f"{sid}: already up-to-date ({cache_ver})")
+            continue
+
+        # Non-dry run: perform update if needed/forced
+        try:
+            if needs or force:
+                before = cache_ver
+                reg.update(sid, force=force, check=False)
+                # Read after-update version from cache
+                after, _, _ = reg.probe_update(sid)
+                typer.secho(f"[ok] Updated: {sid} {before} -> {after}", fg=typer.colors.GREEN)
+            else:
+                # Still refresh metadata/timestamps
+                reg.update(sid, check=True)
+                typer.echo(f"{sid}: already up-to-date ({cache_ver})")
+        except Exception as e:
+            typer.secho(f"Error updating {sid}: {e}", err=True, fg=typer.colors.RED)
+
+    raise typer.Exit(code=0)

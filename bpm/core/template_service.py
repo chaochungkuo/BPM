@@ -7,6 +7,7 @@ from typing import Any, Dict, List, Tuple, Optional
 from bpm.core import brs_loader
 from bpm.core.context import build as build_ctx
 from bpm.core.descriptor_loader import load as load_desc, Descriptor
+from bpm.utils.interpolate import interpolate_ctx_string
 from bpm.core.hooks_runner import run as run_hooks
 from bpm.core.jinja_renderer import render as jinja_render
 from bpm.core.param_resolver import resolve as resolve_params
@@ -198,8 +199,9 @@ def run(project_dir: Path, template_id: str) -> None:
     if desc.hooks and desc.hooks.get("pre_run"):
         run_hooks(desc.hooks["pre_run"], ctx)
 
-    # Execute run.sh (or the configured entry)
-    out_dir = (project_dir / f"{project['name']}/{template_id}").resolve()
+    # Execute run.sh (or the configured entry) in the same folder as render.into
+    into = interpolate_ctx_string(desc.render_into, ctx)
+    out_dir = (project_dir / into).resolve()
     entry = desc.run_entry or "run.sh"
     run_process([f"./{entry}"], cwd=out_dir)
 

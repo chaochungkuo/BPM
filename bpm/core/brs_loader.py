@@ -77,8 +77,17 @@ def load_config(root: Optional[Path] = None) -> BrsConfig:
 
 
 def template_descriptor_path(template_id: str, root: Optional[Path] = None) -> Path:
-    """Path to templates/<id>/template.config.yaml"""
-    return (get_paths(root).templates_dir / template_id / "template.config.yaml")
+    """
+    Path to the template descriptor file.
+
+    Supports both names for compatibility:
+      - templates/<id>/template_config.yaml (preferred)
+      - templates/<id>/template.config.yaml (legacy)
+    """
+    base = get_paths(root).templates_dir / template_id
+    preferred = base / "template_config.yaml"
+    legacy = base / "template.config.yaml"
+    return preferred if preferred.exists() else legacy
 
 
 def template_exists(template_id: str, root: Optional[Path] = None) -> bool:

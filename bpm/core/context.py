@@ -52,6 +52,18 @@ class Ctx:
 
     # ------------------------- Helper methods -------------------------
 
+    @property
+    def project_dir(self) -> str:
+        """
+        Local filesystem base directory for this project.
+
+        - In project mode: materializes project.project_path to a local absolute path.
+        - In ad-hoc mode: falls back to ctx.cwd.
+        """
+        if self.project:
+            return self.materialize(self.project.project_path)
+        return str(self.cwd)
+
     def hostname(self) -> str:
         """
         Return a short hostname. Useful for host-aware defaults.

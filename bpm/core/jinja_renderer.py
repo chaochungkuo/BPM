@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Literal, Tuple
 
-from jinja2 import Environment, FileSystemLoader, StrictUndefined, TemplateNotFound
+from jinja2 import Environment, FileSystemLoader, StrictUndefined, TemplateNotFound, TemplateSyntaxError
 
 from bpm.core import brs_loader
 from bpm.core.descriptor_loader import Descriptor
@@ -134,8 +134,16 @@ def render(desc: Descriptor, ctx: Ctx, *, dry: bool = False) -> List[PlanItem]:
                 template = env.get_template(str(src_rel))
             except TemplateNotFound as e:
                 raise FileNotFoundError(f"Template not found: {src_rel}") from e
+            except TemplateSyntaxError as e:
+                # Surface clearer error with file and line info
+                fname = e.filename or str(src_rel)
+                raise RuntimeError(f"Jinja syntax error in {fname}:{e.lineno}: {e.message}") from e
             # Render with ctx exposed
-            content = template.render(ctx=ctx)
+            try:
+                content = template.render(ctx=ctx)
+            except TemplateSyntaxError as e:
+                fname = e.filename or str(src_rel)
+                raise RuntimeError(f"Jinja syntax error in {fname}:{e.lineno}: {e.message}") from e
             write_text(step.dst, content)
 
         elif step.action == "copy":

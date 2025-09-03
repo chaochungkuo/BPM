@@ -3,7 +3,8 @@ import shutil
 import subprocess
 from pathlib import Path
 import os
-from typing import Optional
+from typing import Optional, Tuple
+import tempfile
 from bpm.core import env
 from bpm.io.yamlio import safe_load_yaml
 from bpm.models.store_index import StoreRecord, StoreIndex
@@ -52,7 +53,8 @@ def _copy_brs_tree(src: Path, dest: Path) -> None:
             pass
         return list(ignore)
 
-    shutil.copytree(src, dest, symlinks=True, ignore=_ignore)
+    # Allow copying into an existing empty/temporary directory
+    shutil.copytree(src, dest, symlinks=True, ignore=_ignore, dirs_exist_ok=True)
 
 
 def add(source: str, activate: bool = False) -> StoreRecord:
@@ -137,16 +139,122 @@ def remove(brs_id: str) -> None:
         idx.active = None
     env.save_store_index(idx)
 
-def update(brs_id: str) -> StoreRecord:
+def _lock_path_for(brs_id: str) -> Path:
+    root = env.get_brs_cache_dir()
+    return root / f".{brs_id}.lock"
+
+def _acquire_lock(lock_path: Path) -> None:
+    try:
+        lock_path.mkdir(exist_ok=False)
+    except FileExistsError:
+        raise StoreError("Another update is in progress for this store")
+
+def _release_lock(lock_path: Path) -> None:
+    try:
+        if lock_path.exists():
+            shutil.rmtree(lock_path, ignore_errors=True)
+    except Exception:
+        pass
+
+def _atomic_replace_dir(src_tmp: Path, dest: Path) -> None:
+    parent = dest.parent
+    backup = parent / f"{dest.name}.bak"
+    if backup.exists():
+        shutil.rmtree(backup, ignore_errors=True)
+    if dest.exists():
+        dest.rename(backup)
+    src_tmp.rename(dest)
+    if backup.exists():
+        shutil.rmtree(backup, ignore_errors=True)
+
+def probe_update(brs_id: str) -> Tuple[str, Optional[str], bool]:
+    """
+    Inspect versions from cache vs. source repo.yaml.
+    Returns: (cache_version, source_version_or_None, needs_update)
+    If the source path is missing or invalid, source_version is None and needs_update is False.
+    """
     idx = env.load_store_index()
     rec = idx.stores.get(brs_id)
     if not rec:
         raise StoreError(f"Unknown store id: {brs_id}")
-    # Re-read metadata from cache
     cache_path = Path(rec.cache_path)
-    meta = _read_repo_yaml(cache_path)
+    cache_meta = _read_repo_yaml(cache_path)
+    cache_ver = str(cache_meta.get("version", ""))
+
+    src_ver: Optional[str] = None
+    try:
+        src = Path(rec.source)
+        if src.exists():
+            src_meta = _read_repo_yaml(src)
+            src_ver = str(src_meta.get("version", ""))
+    except Exception:
+        src_ver = None
+
+    needs = (src_ver is not None) and (src_ver != cache_ver)
+    return cache_ver, src_ver, needs
+
+def update(brs_id: str, *, force: bool = False, check: bool = False) -> StoreRecord:
+    """
+    Refresh the cached BRS from its source if the version changed (or force=True).
+    - Copies the source into cache via a temp directory, then atomically swaps.
+    - If check=True, does not modify anything; only refreshes timestamps/metadata from cache.
+    Always updates the store record's version/last_updated from the cache repo.yaml.
+    """
+    idx = env.load_store_index()
+    rec = idx.stores.get(brs_id)
+    if not rec:
+        raise StoreError(f"Unknown store id: {brs_id}")
+
+    cache_path = Path(rec.cache_path)
+    cache_meta = _read_repo_yaml(cache_path)
+    cache_ver = str(cache_meta.get("version", ""))
+
+    do_copy = False
+    src = Path(rec.source)
+    src_ver: Optional[str] = None
+    if src.exists():
+        try:
+            src_meta = _read_repo_yaml(src)
+            src_ver = str(src_meta.get("version", ""))
+            do_copy = force or (src_ver != cache_ver)
+        except Exception:
+            # if source invalid, fall back to metadata refresh only
+            do_copy = False
+            src_ver = None
+    else:
+        do_copy = False
+
+    if check:
+        # no mutation; return current rec after metadata refresh from cache
+        commit = _detect_git_commit(cache_path)
+        rec.version = cache_ver
+        rec.commit = commit
+        rec.last_updated = now_iso()
+        idx.stores[brs_id] = rec
+        env.save_store_index(idx)
+        return rec
+
+    if do_copy:
+        lock = _lock_path_for(brs_id)
+        _acquire_lock(lock)
+        try:
+            # copy source into a temp dir under the same parent for atomic rename
+            parent = cache_path.parent
+            tmp_dir = Path(tempfile.mkdtemp(prefix=f".{brs_id}.tmp-", dir=str(parent)))
+            try:
+                _copy_brs_tree(src, tmp_dir)
+                _atomic_replace_dir(tmp_dir, cache_path)
+            finally:
+                # Clean up tmp if it still exists (e.g., on failure before rename)
+                if tmp_dir.exists():
+                    shutil.rmtree(tmp_dir, ignore_errors=True)
+        finally:
+            _release_lock(lock)
+
+    # Re-read metadata from cache after potential update
+    cache_meta = _read_repo_yaml(cache_path)
     commit = _detect_git_commit(cache_path)
-    rec.version = str(meta["version"])
+    rec.version = str(cache_meta.get("version", ""))
     rec.commit = commit
     rec.last_updated = now_iso()
     idx.stores[brs_id] = rec

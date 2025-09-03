@@ -112,15 +112,75 @@ def info(
 
 @app.command("status")
 def status(
-    project_dir: str = typer.Option(".", "--dir", help="Project directory (contains project.yaml)")
+    project_dir: Path = typer.Option(Path("."), "--dir", help="Project directory (contains project.yaml)"),
+    format: str = typer.Option(
+        "plain",
+        "--format",
+        "-f",
+        help="Output format: plain (default), table, or json",
+        show_default=True,
+    ),
 ):
     """
-    Display a simple status view: project name/status and template entries with statuses.
+    Display project status: project name/status and template entries with statuses.
     """
     try:
-        s = svc.status_table(Path(project_dir).resolve())
+        # For plain we reuse the existing service table to keep tests stable
+        if (format or "plain").lower() == "plain":
+            s = svc.status_table(project_dir.resolve())
+            typer.echo(s)
+            return
+
+        data = svc.info(project_dir.resolve())
     except FileNotFoundError as e:
         typer.secho(f"Error: {e}", err=True, fg=typer.colors.RED)
         raise typer.Exit(code=1)
 
+    name = data.get("name")
+    status_val = data.get("status")
+    templates = [
+        {"id": t.get("id"), "status": t.get("status")}
+        for t in (data.get("templates") or [])
+    ]
+
+    fmt = (format or "plain").lower()
+    if fmt == "json":
+        import json
+
+        typer.echo(
+            json.dumps(
+                {
+                    "name": name,
+                    "status": status_val,
+                    "templates": templates,
+                },
+                indent=2,
+            )
+        )
+        return
+
+    if fmt == "table":
+        try:
+            from rich.console import Console
+            from rich.table import Table
+        except Exception:
+            # Fallback to plain
+            s = svc.status_table(project_dir.resolve())
+            typer.echo(s)
+            return
+
+        table = Table(title=f"Project Status: {name} ({status_val})")
+        table.add_column("Template", style="cyan", no_wrap=True)
+        table.add_column("Status", style="bold")
+        if not templates:
+            # Leave empty body; Rich shows headers and title
+            pass
+        else:
+            for t in templates:
+                table.add_row(str(t.get("id")), str(t.get("status")))
+        Console().print(table)
+        return
+
+    # Unknown format → treat as plain
+    s = svc.status_table(project_dir.resolve())
     typer.echo(s)
