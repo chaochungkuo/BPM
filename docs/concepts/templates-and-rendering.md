@@ -2,6 +2,7 @@
 title: Templates & Rendering
 parent: Concepts
 nav_order: 2
+render_with_liquid: false
 ---
 
 # Templates & Rendering
@@ -14,4 +15,3 @@ nav_order: 2
 Project vs Ad‑hoc:
 - Project mode: base is `ctx.project_dir`.
 - Ad‑hoc mode: base is `--out` (render.into is treated as `.`).
-

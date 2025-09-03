@@ -1,6 +1,7 @@
 ---
 title: Troubleshooting
 nav_order: 9
+render_with_liquid: false
 ---
 
 # Troubleshooting
@@ -15,4 +16,3 @@ nav_order: 9
 ## Cache/Store Issues
 - `bpm resource list` to verify active store
 - `bpm resource update --id <id> --force` to refresh
-
