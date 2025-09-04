@@ -8,22 +8,44 @@ has_toc: true
 
 # Templates & Rendering
 
-- Templates live in a BRS and declare parameters and render rules in `template_config.yaml`.
-- `render.into` controls the output directory (supports `${ctx.project.name}` and `${ctx.template.id}` placeholders).
-- Parameter precedence: defaults < project-stored < CLI `--param`.
-- Jinja rendering is strict: missing variables error; reference the context explicitly.
+Keep templates declarative: list params, files, where to render, and what to run.
 
-Examples:
+## Descriptor (template_config.yaml)
+```
+id: hello
+description: Minimal demo
+params:
+  sample_id: {type: str, required: true}
+render:
+  into: "${ctx.project.name}/${ctx.template.id}/"  # default if omitted
+  files:
+    - run.sh.j2 -> run.sh
+run:
+  entry: run.sh
+publish:
+  sample_file:
+    resolver: resolvers.files:find
+    args: {pattern: "run.out"}
+```
+
+## Files section
+- `src -> dst` mappings under `render.files`.
+- `*.j2` sources render with Jinja and have access to `ctx`.
+- Non‑Jinja files are copied as‑is.
+- If `run.entry` is defined, BPM marks the destination as executable.
+
+## Jinja basics
+- Strict mode: undefined variables raise errors (helps catch typos).
+- Access context as `{{ ctx.params.* }}`, `{{ ctx.project.name }}`, etc.
+
+Examples
 {% raw %}
 ```
+{{ ctx.params.sample_id }}
 ${ctx.project.name}/${ctx.template.id}/
-```
-
-```
-{{ ctx.params.name }}
 ```
 {% endraw %}
 
-Project vs Ad‑hoc:
-- Project mode: base is `ctx.project_dir`.
-- Ad‑hoc mode: base is `--out` (render.into is treated as `.`).
+## Project vs Ad‑hoc
+- Project mode: base is `ctx.project_dir` (materialized from `project.yaml`).
+- Ad‑hoc mode: `bpm template render --out /tmp/out hello` renders into `/tmp/out` and ignores `render.into` (treated as `.`). Hooks are skipped; BPM writes `bpm.meta.yaml` with params and source info.
