@@ -7,12 +7,26 @@ has_toc: true
 
 # Workflow Anatomy
 
-Key points:
-- Descriptor: `workflow.yaml` declares params, files to render, `run.entry`, and optional publish keys.
-- Composition: may call multiple tools/steps; can shell out to engines.
-- Outputs: aggregate artifacts and expose via publish keys.
+Workflows wrap multiple steps or tools without forcing a specific engine.
 
-TODO:
-- Provide a minimal `workflow.yaml` skeleton.
-- Describe how to share params across steps.
+## Descriptor example
+```
+# workflows/clean/workflow.yaml
+id: clean
+description: Remove intermediates
+params:
+  keep_logs: {type: bool, default: true}
+render:
+  into: "${ctx.project.name}/${ctx.template.id}/"
+  files:
+    - run.sh.j2 -> run.sh
+run:
+  entry: run.sh
+hooks:
+  pre_run:
+    - hooks.env:main
+```
 
+## Behavior
+- Render and run mirror templates: files are generated, then `run.entry` executes in that folder.
+- No built‑in `publish:` block; use templates to expose publishable outputs.

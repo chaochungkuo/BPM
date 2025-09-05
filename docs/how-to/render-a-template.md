@@ -6,18 +6,20 @@ has_toc: true
 ---
 
 # Render a Template
+Quickly render files from a template.
 
-## Project Mode
-
+Project mode
 ```
-cd 250903_TEST
-bpm template render --param "bcl_dir=/data/BCL" demux_bclconvert
-```
-
-## Ad‑hoc Mode
-
-```
-bpm template render --out /tmp/out --param "bcl_dir=/data/BCL" demux_bclconvert
+cd /abs/path/250903_TEST
+bpm template render --param KEY=VALUE <id>
 ```
 
-In ad‑hoc mode, files are written directly to `--out`.
+Ad‑hoc mode
+```
+bpm template render --out /tmp/out --param KEY=VALUE <id>
+```
+
+Tips
+- Use `--dry` to preview planned actions without writing files.
+- Pass multiple `--param` flags as needed; types are coerced.
+- In ad‑hoc, files are written directly to `--out` and hooks are skipped.

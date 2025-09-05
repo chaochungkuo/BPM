@@ -1,7 +1,7 @@
 ---
 title: Templates & Rendering
 parent: Concepts
-nav_order: 2
+nav_order: 3
 render_with_liquid: false
 has_toc: true
 ---

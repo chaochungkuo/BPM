@@ -1,7 +1,7 @@
 ---
 title: Workflows vs Templates
 parent: Concepts
-nav_order: 6
+nav_order: 7
 has_toc: true
 ---
 

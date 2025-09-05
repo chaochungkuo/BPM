@@ -7,12 +7,34 @@ has_toc: true
 
 # Resolvers & Publish Keys
 
-Key points:
-- Purpose: declare stable names for important outputs and how to find them.
-- Types: directories, files, URLs, tables; document each key’s shape.
-- Conventions: short, descriptive names; avoid breaking changes.
+Name important outputs and provide a small function to find each one.
 
-TODO:
-- Include an example resolver mapping and its result.
-- Provide a naming guide for keys across a BRS.
+## In the template
+```
+publish:
+  fastq_dir:
+    resolver: resolvers.fastq:main
+  multiqc_report:
+    resolver: resolvers.reports:find
+    args: {pattern: "**/multiqc_report.html"}
+```
 
+## Resolver signature
+```
+# resolvers/fastq.py
+def main(ctx):
+    # Return an absolute path to the FASTQ directory
+    return f"{ctx.project_dir}/{ctx.project.name}/{ctx.template.id}/fastq"
+```
+
+## Result in project.yaml
+```
+templates:
+  - id: hello
+    published:
+      fastq_dir: /abs/250903_TEST/hello/fastq
+```
+
+## Naming rules
+- Use short, stable `snake_case` keys: `fastq_dir`, `bam_dir`, `vcf`, `multiqc_report`.
+- Document the type/shape (dir, file, URL, table) in your template README.

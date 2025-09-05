@@ -1,7 +1,7 @@
 ---
 title: Error Handling & Diagnostics
 parent: Concepts
-nav_order: 12
+nav_order: 13
 has_toc: true
 ---
 

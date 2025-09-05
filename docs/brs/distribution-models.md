@@ -7,13 +7,25 @@ has_toc: true
 
 # Distribution Models
 
-Key points:
-- Local: point BPM at a local directory (fast for development).
-- Git: add via HTTPS/SSH; pin tags or commits for stability.
-- Multi‑store: operate multiple catalogs; switch active store per project.
-- Trust: review sources; prefer signed releases where possible.
+Choose a local folder for development, use Git for sharing, and pin versions for stability.
 
-TODO:
-- Show `bpm resource add` examples for local and Git.
-- Note how version/commit info is recorded in cache.
+## Local directory
+```
+bpm resource add ./UKA_GF_BRS --activate
+bpm resource list
+```
 
+## Git repository
+```
+bpm resource add https://github.com/your-org/UKA_GF_BRS.git --activate
+# Or SSH
+bpm resource add git@github.com:your-org/UKA_GF_BRS.git --activate
+```
+
+## Pinning versions
+- Prefer tags or commit SHAs in your workflow docs or environment bootstrap.
+- After updates, BPM records `version` and `commit` in `stores.yaml`.
+
+## Multi‑store setups
+- Add multiple stores and switch the active one per need.
+- Keep ids short and unique.
