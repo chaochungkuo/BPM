@@ -29,9 +29,9 @@ bpm resource list [--format plain|table|json]
 
 ## info
 ```
-bpm resource info [--id <id>]
+bpm resource info [--id <id>] [--format plain|table|json]
 ```
-- Shows id, source, cached_path for the active store (or a specific `--id`).
+- Shows id, source, cached_path, version, commit (table by default). Use `--id` to inspect a specific store.
 
 ## update
 ```

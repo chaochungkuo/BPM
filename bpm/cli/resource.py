@@ -113,10 +113,10 @@ def remove(
 @app.command("list")
 def list_(
     format: str = typer.Option(
-        "plain",
+        "table",
         "--format",
         "-f",
-        help="Output format: plain (default), table, or json",
+        help="Output format: table (default), plain, or json",
         show_default=True,
     )
 ):
@@ -131,7 +131,7 @@ def list_(
         typer.echo("(no stores)")
         raise typer.Exit(code=0)
 
-    fmt = (format or "plain").lower()
+    fmt = (format or "table").lower()
 
     # plain (backward compatible, used by tests)
     if fmt == "plain":
@@ -188,14 +188,21 @@ def list_(
 @app.command("info")
 def info(
     store_id: str = typer.Option(
-        None, 
-        "--id", 
-        help="Specific store id (default: active store)", 
+        None,
+        "--id",
+        help="Specific store id (default: active store)",
         autocompletion=lambda ctx, args, incomplete: [sid for sid in (env.load_store_index().stores or {}).keys() if str(sid).startswith(incomplete)],
+    ),
+    format: str = typer.Option(
+        "table",
+        "--format",
+        "-f",
+        help="Output format: table (default), plain, or json",
+        show_default=True,
     ),
 ):
     """
-    Show details for a store (id, source, cached_path). Defaults to the active store.
+    Show details for a store (id, source, cached_path, version/commit). Defaults to the active store.
     """
     data = _load_stores_yaml()
     active = data.get("active")
@@ -212,14 +219,51 @@ def info(
         typer.secho(f"Error: store not found: {sid}", err=True, fg=typer.colors.RED)
         raise typer.Exit(code=1)
 
+    fmt = (format or "table").lower()
+
+    if fmt == "json":
+        import json
+
+        payload = {
+            "id": match.get("id"),
+            "source": match.get("source"),
+            "cached_path": match.get("cache_path"),
+            "version": match.get("version"),
+            "commit": match.get("commit"),
+            "last_updated": match.get("last_updated"),
+            "active": bool(active == sid),
+        }
+        typer.echo(json.dumps(payload, indent=2))
+        return
+
+    if fmt == "table":
+        try:
+            from rich.console import Console
+            from rich.table import Table
+        except Exception:
+            fmt = "plain"
+        else:
+            table = Table(title=f"BRS Store: {sid}")
+            table.add_column("Field", style="bold", no_wrap=True)
+            table.add_column("Value")
+            table.add_row("ID", str(match.get("id")))
+            table.add_row("Source", str(match.get("source")))
+            table.add_row("Cached Path", str(match.get("cache_path")))
+            table.add_row("Version", str(match.get("version", "")))
+            table.add_row("Commit", str(match.get("commit", "")))
+            table.add_row("Last Updated", str(match.get("last_updated", "")))
+            table.add_row("Active", "true" if active == sid else "false")
+            Console().print(table)
+            return
+
+    # plain output
     typer.echo(f"id: {match.get('id')}")
     typer.echo(f"source: {match.get('source')}")
-    # YAML uses 'cache_path'
     typer.echo(f"cached_path: {match.get('cache_path')}")
-    if active == sid:
-        typer.echo("active: true")
-    else:
-        typer.echo("active: false")
+    typer.echo(f"version: {match.get('version', '')}")
+    typer.echo(f"commit: {match.get('commit', '')}")
+    typer.echo(f"last_updated: {match.get('last_updated', '')}")
+    typer.echo("active: true" if active == sid else "active: false")
 
 
 @app.command("update")

@@ -99,10 +99,10 @@ def publish(
 @app.command("list")
 def list_templates(
     format: str = typer.Option(
-        "plain",
+        "table",
         "--format",
         "-f",
-        help="Output format: plain (default), table, or json",
+        help="Output format: table (default), plain, or json",
         show_default=True,
     ),
 ):
@@ -130,7 +130,7 @@ def list_templates(
         typer.echo("(no templates)")
         raise typer.Exit(code=0)
 
-    fmt = (format or "plain").lower()
+    fmt = (format or "table").lower()
     if fmt == "json":
         import json
 

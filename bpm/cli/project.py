@@ -47,10 +47,10 @@ def init(
 def info(
     project_dir: Path = typer.Option(Path("."), "--dir", help="Project directory (contains project.yaml)"),
     format: str = typer.Option(
-        "plain",
+        "table",
         "--format",
         "-f",
-        help="Output format: plain (default), table, or json",
+        help="Output format: table (default), plain, or json",
         show_default=True,
     ),
 ):
@@ -68,7 +68,7 @@ def info(
     authors = [a.get("id") for a in (data.get("authors") or [])]
     templates = [t.get("id") for t in (data.get("templates") or [])]
 
-    fmt = (format or "plain").lower()
+    fmt = (format or "table").lower()
 
     if fmt == "json":
         import json
@@ -114,10 +114,10 @@ def info(
 def status(
     project_dir: Path = typer.Option(Path("."), "--dir", help="Project directory (contains project.yaml)"),
     format: str = typer.Option(
-        "plain",
+        "table",
         "--format",
         "-f",
-        help="Output format: plain (default), table, or json",
+        help="Output format: table (default), plain, or json",
         show_default=True,
     ),
 ):
@@ -143,7 +143,7 @@ def status(
         for t in (data.get("templates") or [])
     ]
 
-    fmt = (format or "plain").lower()
+    fmt = (format or "table").lower()
     if fmt == "json":
         import json
 
