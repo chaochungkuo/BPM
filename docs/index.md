@@ -11,7 +11,6 @@ Write once, render anywhere — in any project context.
 BPM is a lightweight CLI that sits above your scripts and pipelines. It organizes projects, renders reusable templates from Bioinformatics Resource Stores (BRS), runs their entries, and publishes structured results — all while keeping state in plain files you control.
 
 ![BPM and BRS overview](assets/img/bpm-brs-overview.png)
-![BPM mechanism](assets/img/bpm_mechanism.png)
 
 ## What BPM Is (and Isn’t)
 
@@ -31,6 +30,8 @@ BPM is a lightweight CLI that sits above your scripts and pipelines. It organize
 - Add/activate a BRS catalog for your lab or facility.
 - Create (or open) a project folder.
 - Render → Run → Publish a template; BPM handles paths, parameters, and outputs in context.
+
+![BPM mechanism](assets/img/bpm_mechanism.png)
 
 ## Core Layers
 
