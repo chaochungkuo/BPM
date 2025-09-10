@@ -39,36 +39,42 @@ def test_resource_add_list_activate_remove(tmpdir, monkeypatch):
     assert r1.exit_code == 0, r1.output
     assert "[ok] Added store:" in r1.output and "(activated)" in r1.output
 
-    # list → one entry, active marked
-    rlist1 = runner.invoke(root_app, ["resource", "list"])
+    # list → one entry, active marked (json for stable assertions)
+    rlist1 = runner.invoke(root_app, ["resource", "list", "--format", "json"])
     assert rlist1.exit_code == 0
-    assert "* brs_one" in rlist1.output
+    import json as _json
+    lst_payload = _json.loads(rlist1.output)
+    assert lst_payload.get("active") == "brs_one"
+    assert "brs_one" in (lst_payload.get("stores") or {})
 
     # add second (no activate)
     r2 = runner.invoke(root_app, ["resource", "add", str(brs2)])
     assert r2.exit_code == 0, r2.output
-    # list → both entries present
-    rlist2 = runner.invoke(root_app, ["resource", "list"])
+    # list → both entries present (json)
+    rlist2 = runner.invoke(root_app, ["resource", "list", "--format", "json"])
     assert rlist2.exit_code == 0
-    assert " brs_one" in rlist2.output
-    assert " brs_two" in rlist2.output
+    lst2 = _json.loads(rlist2.output)
+    assert set((lst2.get("stores") or {}).keys()) >= {"brs_one", "brs_two"}
 
     # activate second
     ract = runner.invoke(root_app, ["resource", "activate", "brs_two"])
     assert ract.exit_code == 0
-    rlist3 = runner.invoke(root_app, ["resource", "list"])
-    assert "* brs_two" in rlist3.output
+    rlist3 = runner.invoke(root_app, ["resource", "list", "--format", "json"])
+    lst3 = _json.loads(rlist3.output)
+    assert lst3.get("active") == "brs_two"
 
     # info (active by default)
-    rinfo = runner.invoke(root_app, ["resource", "info"])
+    rinfo = runner.invoke(root_app, ["resource", "info", "--format", "json"])
     assert rinfo.exit_code == 0
-    assert "id: brs_two" in rinfo.output
-    assert "active: true" in rinfo.output
+    info = _json.loads(rinfo.output)
+    assert info.get("id") == "brs_two"
+    assert info.get("active") is True
 
     # remove first
     rrm = runner.invoke(root_app, ["resource", "remove", "brs_one"])
     assert rrm.exit_code == 0
 
-    rlist4 = runner.invoke(root_app, ["resource", "list"])
-    assert "brs_one" not in rlist4.output
-    assert "brs_two" in rlist4.output
+    rlist4 = runner.invoke(root_app, ["resource", "list", "--format", "json"])
+    lst4 = _json.loads(rlist4.output)
+    assert "brs_one" not in (lst4.get("stores") or {})
+    assert "brs_two" in (lst4.get("stores") or {})
