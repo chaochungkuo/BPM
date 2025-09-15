@@ -23,15 +23,15 @@ bpm resource activate <id>
 
 ## list
 ```
-bpm resource list [--format plain|table|json]
+bpm resource list [--format table|plain|json]
 ```
 - Lists cached stores; marks the active one with `*`.
 
 ## info
 ```
-bpm resource info [--id <id>] [--format plain|table|json]
+bpm resource info [--id <id>] [--format table|plain|json]
 ```
-- Shows id, source, cached_path, version, commit (table by default). Use `--id` to inspect a specific store.
+- Shows id, source, cached_path, version, commit. Use `--id` to inspect a specific store.
 
 ## update
 ```
@@ -47,3 +47,4 @@ bpm resource remove <id>
 
 Notes
 - Cache root defaults to `~/.bpm_cache` (override with `BPM_CACHE`).
+- Default output format is `table` (use `--format plain|json` to override).

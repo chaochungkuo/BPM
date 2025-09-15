@@ -164,6 +164,7 @@ def list_(
     try:
         from rich.console import Console
         from rich.table import Table
+        from rich import box
     except Exception:
         # fallback to plain if rich missing
         for sid in sorted(stores.keys()):
@@ -174,7 +175,12 @@ def list_(
             )
         return
 
-    table = Table(title="BRS Stores")
+    table = Table(
+        title="BRS Stores",
+        box=box.MINIMAL_DOUBLE_HEAD,
+        header_style="bold cyan",
+        row_styles=["", "dim"],
+    )
     table.add_column("Active", justify="center", width=6)
     table.add_column("ID", style="cyan", no_wrap=True)
     table.add_column("Source", overflow="fold")
@@ -240,10 +246,16 @@ def info(
         try:
             from rich.console import Console
             from rich.table import Table
+            from rich import box
         except Exception:
             fmt = "plain"
         else:
-            table = Table(title=f"BRS Store: {sid}")
+            table = Table(
+                title=f"BRS Store: {sid}",
+                box=box.MINIMAL_DOUBLE_HEAD,
+                header_style="bold cyan",
+                row_styles=["", "dim"],
+            )
             table.add_column("Field", style="bold", no_wrap=True)
             table.add_column("Value")
             table.add_row("ID", str(match.get("id")))

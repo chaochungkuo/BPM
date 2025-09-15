@@ -65,7 +65,14 @@ def info(
 
     name = data.get("name")
     status = data.get("status")
-    authors = [a.get("id") for a in (data.get("authors") or [])]
+    # Preserve original author list for JSON, but display full names + affiliation in human formats
+    authors_raw = (data.get("authors") or [])
+    authors_ids = [a.get("id") for a in authors_raw]
+    def _author_display(a: dict) -> str:
+        name = (a or {}).get("name") or (a or {}).get("id") or ""
+        aff = (a or {}).get("affiliation")
+        return f"{name} ({aff})" if aff else str(name)
+    authors_disp = ", ".join(_author_display(a) for a in authors_raw)
     templates = [t.get("id") for t in (data.get("templates") or [])]
 
     fmt = (format or "table").lower()
@@ -78,7 +85,7 @@ def info(
                 {
                     "name": name,
                     "status": status,
-                    "authors": authors,
+                    "authors": authors_ids,
                     "templates": templates,
                 },
                 indent=2,
@@ -90,15 +97,21 @@ def info(
         try:
             from rich.console import Console
             from rich.table import Table
+            from rich import box
         except Exception:
             fmt = "plain"  # fallback
         else:
-            table = Table(title="Project Info")
+            table = Table(
+                title="Project Info",
+                box=box.MINIMAL_DOUBLE_HEAD,
+                header_style="bold cyan",
+                row_styles=["", "dim"],
+            )
             table.add_column("Key", style="bold", no_wrap=True)
             table.add_column("Value")
             table.add_row("Name", str(name))
             table.add_row("Status", str(status))
-            table.add_row("Authors", ", ".join(map(str, authors)))
+            table.add_row("Authors", authors_disp)
             table.add_row("Templates", ", ".join(map(str, templates)))
             Console().print(table)
             return
@@ -106,7 +119,7 @@ def info(
     # plain (default; preserves existing test expectations)
     typer.echo(f"name: {name}")
     typer.echo(f"status: {status}")
-    typer.echo(f"authors: {authors}")
+    typer.echo(f"authors: {authors_disp}")
     typer.echo(f"templates: {templates}")
 
 
@@ -163,13 +176,19 @@ def status(
         try:
             from rich.console import Console
             from rich.table import Table
+            from rich import box
         except Exception:
             # Fallback to plain
             s = svc.status_table(project_dir.resolve())
             typer.echo(s)
             return
 
-        table = Table(title=f"Project Status: {name} ({status_val})")
+        table = Table(
+            title=f"Project Status: {name} ({status_val})",
+            box=box.MINIMAL_DOUBLE_HEAD,
+            header_style="bold cyan",
+            row_styles=["", "dim"],
+        )
         table.add_column("Template", style="cyan", no_wrap=True)
         table.add_column("Status", style="bold")
         if not templates:

@@ -5,21 +5,23 @@ from typing import Sequence
 
 
 class ProcessError(RuntimeError):
-    """Raised when a subprocess returns non-zero, with captured stdout/stderr."""
+    """Raised when a subprocess returns non-zero."""
 
 
 def run_process(cmd: Sequence[str], cwd: Path) -> None:
     """
-    Run a command and fail with stdout/stderr if it exits non-zero.
+    Run a command, streaming stdout/stderr live to the console.
+
+    - No output is hidden. On failure, raise ProcessError with a terse message
+      (the full output has already been printed to the console).
 
     Args:
         cmd: Command vector (e.g., ["./run.sh"]).
         cwd: Working directory to execute in.
 
     Raises:
-        ProcessError: if returncode != 0, includes stdout/stderr.
+        ProcessError: if the process exits with a non-zero status.
     """
-    res = subprocess.run(cmd, cwd=str(cwd), text=True, capture_output=True)
-    if res.returncode != 0:
-        msg = f"Command failed: {' '.join(cmd)}\n--- stdout ---\n{res.stdout}\n--- stderr ---\n{res.stderr}"
-        raise ProcessError(msg)
+    rc = subprocess.run(cmd, cwd=str(cwd)).returncode
+    if rc != 0:
+        raise ProcessError(f"Command failed with exit code {rc}: {' '.join(cmd)}")
