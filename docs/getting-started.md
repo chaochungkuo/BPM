@@ -10,8 +10,10 @@ This guide walks through installing BPM, creating a project, adding a BRS, and r
 
 ## Install
 
+See Installation for pip, Pixi, or Conda instructions. For a quick start from source:
+
 ```
-pip install -e .[dev]
+python -m pip install -e .
 ```
 
 ## Create a Project

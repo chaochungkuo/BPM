@@ -1,0 +1,13 @@
+name: bpm
+channels:
+  - conda-forge
+dependencies:
+  - python>=3.10
+  - typer>=0.12
+  - jinja2>=3.1
+  - pyyaml>=6.0
+  - rich>=13.7
+  - pip
+# After creating the environment, install BPM with:
+#   conda activate bpm
+#   python -m pip install -e .

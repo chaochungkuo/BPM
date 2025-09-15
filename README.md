@@ -189,14 +189,33 @@ Or use Typer helper once completion is enabled: `bpm --install-completion`.
 
 ## Installation
 
-Using Pixi (recommended for development / tests):
+Pick one of pip, pixi, or conda.
 
-```bash
-pixi install
-pixi run test   # run tests
-pixi run lint   # ruff
-pixi run fmt    # black
-```
+- Pip (user install):
+  ```bash
+  python -m pip install bpm
+  # or in editable mode if working on sources
+  python -m pip install -e .
+  ```
+
+- Pixi (development and testing):
+  ```bash
+  pixi install        # creates an environment with runtime deps
+  pixi run test       # run tests
+  pixi run lint       # ruff
+  pixi run fmt        # black
+  ```
+
+- Conda/Mamba (environment for running bpm):
+  ```bash
+  mamba create -n bpm -c conda-forge python>=3.10 typer jinja2 pyyaml rich
+  mamba activate bpm
+  python -m pip install bpm  # or: python -m pip install -e .
+  ```
+
+Notes
+- Python 3.10+ is required.
+- Rich is included for nicer table output; if missing, BPM falls back to plain text.
 
 Editable install with pip:
 
