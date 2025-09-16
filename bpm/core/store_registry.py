@@ -24,6 +24,26 @@ def _read_repo_yaml(path: Path) -> dict:
         raise StoreError(f"repo.yaml missing keys: {', '.join(missing)}")
     return data
 
+def _is_git_url(source: str) -> bool:
+    s = source.strip()
+    return (
+        s.startswith("http://")
+        or s.startswith("https://")
+        or s.startswith("git@")
+        or s.startswith("ssh://")
+        or s.endswith(".git")
+    )
+
+def _git_clone(url: str, dest: Path) -> None:
+    """
+    Shallow clone a Git repo into dest.
+    Raises StoreError on failure.
+    """
+    try:
+        subprocess.check_call(["git", "clone", "--depth", "1", url, str(dest)])
+    except Exception as e:
+        raise StoreError(f"Failed to clone Git repo: {url}: {e}")
+
 def _detect_git_commit(path: Path) -> Optional[str]:
     if not (path / ".git").exists():
         return None
@@ -66,47 +86,67 @@ def add(source: str, activate: bool = False) -> StoreRecord:
     brs_cache = env.get_brs_cache_dir()
 
     # Determine source type
-    if source.startswith("http://") or source.startswith("https://") or source.endswith(".git"):
-        # For now (no network in tests), require local clone step by user.
-        raise StoreError("Git URL support not implemented in Day 2 (use a local path).")
+    if _is_git_url(source):
+        # Clone into a temporary directory first, then move into place
+        tmp_parent = env.get_brs_cache_dir()
+        tmp_dir = Path(tempfile.mkdtemp(prefix=".tmp-clone-", dir=str(tmp_parent)))
+        try:
+            clone_dir = tmp_dir / "repo"
+            _git_clone(source, clone_dir)
+            meta = _read_repo_yaml(clone_dir)
+            brs_id = meta["id"]
+            dest = env.get_brs_cache_dir() / brs_id
+            if dest.exists():
+                shutil.rmtree(dest)
+            # Move the cloned repo to the cache location (preserves .git)
+            clone_dir.rename(dest)
+            commit = _detect_git_commit(dest)
+        finally:
+            # Clean up temp dir if still around
+            if tmp_dir.exists():
+                shutil.rmtree(tmp_dir, ignore_errors=True)
+        src_repr = source
+        version = str(meta["version"])
+    else:
+        src = Path(source).resolve()
+        if not src.exists():
+            raise StoreError(f"Source path not found: {src}")
 
-    src = Path(source).resolve()
-    if not src.exists():
-        raise StoreError(f"Source path not found: {src}")
+        # Read repo.yaml to get id/version
+        meta = _read_repo_yaml(src)
+        brs_id = meta["id"]
+        dest = brs_cache / brs_id
 
-    # Read repo.yaml to get id/version
-    meta = _read_repo_yaml(src)
-    brs_id = meta["id"]
-    dest = brs_cache / brs_id
+        # Safety guard: prevent copying the source into a subdirectory of itself
+        # This happens if BPM_CACHE points inside the source tree, leading to recursive paths.
+        try:
+            # Path.is_relative_to is available in Python 3.9+
+            if dest.resolve().is_relative_to(src):
+                raise StoreError(
+                    "BPM cache directory is inside the BRS source. Set BPM_CACHE to a location "
+                    "outside the source (e.g., ~/.bpm_cache)."
+                )
+        except AttributeError:
+            # Fallback for older Python: string prefix check
+            if str(dest.resolve()).startswith(str(src) + os.sep):
+                raise StoreError(
+                    "BPM cache directory is inside the BRS source. Set BPM_CACHE to a location "
+                    "outside the source (e.g., ~/.bpm_cache)."
+                )
 
-    # Safety guard: prevent copying the source into a subdirectory of itself
-    # This happens if BPM_CACHE points inside the source tree, leading to recursive paths.
-    try:
-        # Path.is_relative_to is available in Python 3.9+
-        if dest.resolve().is_relative_to(src):
-            raise StoreError(
-                "BPM cache directory is inside the BRS source. Set BPM_CACHE to a location "
-                "outside the source (e.g., ~/.bpm_cache)."
-            )
-    except AttributeError:
-        # Fallback for older Python: string prefix check
-        if str(dest.resolve()).startswith(str(src) + os.sep):
-            raise StoreError(
-                "BPM cache directory is inside the BRS source. Set BPM_CACHE to a location "
-                "outside the source (e.g., ~/.bpm_cache)."
-            )
+        # Copy or refresh
+        if dest.exists():
+            shutil.rmtree(dest)
+        _copy_brs_tree(src, dest)
 
-    # Copy or refresh
-    if dest.exists():
-        shutil.rmtree(dest)
-    _copy_brs_tree(src, dest)
-
-    commit = _detect_git_commit(dest)
+        commit = _detect_git_commit(dest)
+        src_repr = str(src)
+        version = str(meta["version"])
     rec = StoreRecord(
         id=brs_id,
-        source=str(src),
+        source=src_repr,
         cache_path=str(dest),
-        version=str(meta["version"]),
+        version=version,
         commit=commit,
         last_updated=now_iso(),
     )
@@ -183,10 +223,22 @@ def probe_update(brs_id: str) -> Tuple[str, Optional[str], bool]:
 
     src_ver: Optional[str] = None
     try:
-        src = Path(rec.source)
-        if src.exists():
-            src_meta = _read_repo_yaml(src)
-            src_ver = str(src_meta.get("version", ""))
+        if _is_git_url(rec.source):
+            # Shallow clone to temp to read repo.yaml
+            tmp_dir = Path(tempfile.mkdtemp(prefix=f".{brs_id}.probe-", dir=str(cache_path.parent)))
+            try:
+                clone_dir = tmp_dir / "repo"
+                _git_clone(rec.source, clone_dir)
+                src_meta = _read_repo_yaml(clone_dir)
+                src_ver = str(src_meta.get("version", ""))
+            finally:
+                if tmp_dir.exists():
+                    shutil.rmtree(tmp_dir, ignore_errors=True)
+        else:
+            src = Path(rec.source)
+            if src.exists():
+                src_meta = _read_repo_yaml(src)
+                src_ver = str(src_meta.get("version", ""))
     except Exception:
         src_ver = None
 
@@ -210,19 +262,36 @@ def update(brs_id: str, *, force: bool = False, check: bool = False) -> StoreRec
     cache_ver = str(cache_meta.get("version", ""))
 
     do_copy = False
-    src = Path(rec.source)
     src_ver: Optional[str] = None
-    if src.exists():
+    if _is_git_url(rec.source):
+        # Determine if update needed by cloning fresh and comparing versions
         try:
-            src_meta = _read_repo_yaml(src)
-            src_ver = str(src_meta.get("version", ""))
-            do_copy = force or (src_ver != cache_ver)
+            tmp_dir = Path(tempfile.mkdtemp(prefix=f".{brs_id}.probe-", dir=str(cache_path.parent)))
+            try:
+                clone_dir = tmp_dir / "repo"
+                _git_clone(rec.source, clone_dir)
+                src_meta = _read_repo_yaml(clone_dir)
+                src_ver = str(src_meta.get("version", ""))
+                do_copy = force or (src_ver != cache_ver)
+            finally:
+                if tmp_dir.exists():
+                    shutil.rmtree(tmp_dir, ignore_errors=True)
         except Exception:
-            # if source invalid, fall back to metadata refresh only
             do_copy = False
             src_ver = None
     else:
-        do_copy = False
+        src = Path(rec.source)
+        if src.exists():
+            try:
+                src_meta = _read_repo_yaml(src)
+                src_ver = str(src_meta.get("version", ""))
+                do_copy = force or (src_ver != cache_ver)
+            except Exception:
+                # if source invalid, fall back to metadata refresh only
+                do_copy = False
+                src_ver = None
+        else:
+            do_copy = False
 
     if check:
         # no mutation; return current rec after metadata refresh from cache
@@ -238,14 +307,17 @@ def update(brs_id: str, *, force: bool = False, check: bool = False) -> StoreRec
         lock = _lock_path_for(brs_id)
         _acquire_lock(lock)
         try:
-            # copy source into a temp dir under the same parent for atomic rename
             parent = cache_path.parent
             tmp_dir = Path(tempfile.mkdtemp(prefix=f".{brs_id}.tmp-", dir=str(parent)))
             try:
-                _copy_brs_tree(src, tmp_dir)
-                _atomic_replace_dir(tmp_dir, cache_path)
+                if _is_git_url(rec.source):
+                    clone_dir = tmp_dir / "repo"
+                    _git_clone(rec.source, clone_dir)
+                    _atomic_replace_dir(clone_dir, cache_path)
+                else:
+                    _copy_brs_tree(src, tmp_dir)
+                    _atomic_replace_dir(tmp_dir, cache_path)
             finally:
-                # Clean up tmp if it still exists (e.g., on failure before rename)
                 if tmp_dir.exists():
                     shutil.rmtree(tmp_dir, ignore_errors=True)
         finally:

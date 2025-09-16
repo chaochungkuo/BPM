@@ -1,6 +1,6 @@
 [project]
 name = "bpm"
-version = "0.1.0"
+version = "0.1.1"
 description = "BPM core CLI (skeleton)"
 channels = ["conda-forge"]
 platforms = ["linux-64", "osx-64", "osx-arm64"]

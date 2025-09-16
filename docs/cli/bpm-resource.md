@@ -13,7 +13,8 @@ Manage BRS resource stores.
 ```
 bpm resource add <path-or-git-url> [--activate]
 ```
-- Adds the source to the local cache registry; optionally activates it.
+- Adds a BRS from a local path or a Git URL to the local cache registry; optionally activates it.
+- Git URL support clones the repository into the cache (shallow) and records the URL as the source.
 
 ## activate
 ```

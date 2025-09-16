@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "bpm"
-version = "0.1.0"
+dynamic = ["version"]
 description = "Bioinformatics Project Manager (BPM) — core CLI"
 authors = [{name = "Chao-Chung Kuo", email = "chao-chung.kuo@rwth-aachen.de"}]
 readme = "README.md"
@@ -43,3 +43,6 @@ bpm = "bpm.cli.main:app"
 
 [tool.setuptools.packages.find]
 include = ["bpm*"]
+
+[tool.setuptools.dynamic]
+version = { attr = "bpm._version.__version__" }

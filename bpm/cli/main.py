@@ -26,5 +26,22 @@ app.add_typer(template_cli.app, name="template", help="Render/run/publish templa
 app.add_typer(resource_cli.app, name="resource", help="Manage BRS resource stores (add/activate/list/info/remove).")
 app.add_typer(workflow_cli.app, name="workflow", help="Render and run workflows from the active BRS.")
 
+
+@app.callback()
+def _version_option(
+    version: bool = typer.Option(
+        None,
+        "--version",
+        "-V",
+        help="Show BPM version and exit",
+        is_eager=True,
+    ),
+):
+    if version:
+        from bpm import __version__
+
+        typer.echo(f"bpm {__version__}")
+        raise typer.Exit()
+
 if __name__ == "__main__":
     app()

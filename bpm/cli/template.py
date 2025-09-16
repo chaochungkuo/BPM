@@ -44,14 +44,15 @@ def render(
     - Ad‑hoc (with --out): skips hooks and project.yaml updates; writes bpm.meta.yaml
     """
     # Safety: in project mode, encourage running from the project directory to avoid confusion
-    if not out and not allow_outside_cwd:
+    if not out:
         if project_dir.resolve() != Path(".").resolve():
-            typer.secho(
-                "Error: run this command from the project directory or pass --allow-outside-cwd",
-                err=True,
-                fg=typer.colors.RED,
-            )
-            raise typer.Exit(code=1)
+            if not allow_outside_cwd:
+                # Backward-compatible: warn but continue to support --dir workflows and tests
+                typer.secho(
+                    "Warning: running from outside the project directory; consider 'cd' into it or pass --allow-outside-cwd to silence this warning.",
+                    err=True,
+                    fg=typer.colors.YELLOW,
+                )
 
     try:
         plan = svc.render(
@@ -229,14 +230,13 @@ def run(
     Execute the template's run entry (e.g., run.sh) with pre/post hooks.
     """
     # Safety: require running from the project directory unless explicitly allowed
-    if not allow_outside_cwd:
-        if project_dir.resolve() != Path(".").resolve():
+    if project_dir.resolve() != Path(".").resolve():
+        if not allow_outside_cwd:
             typer.secho(
-                "Error: run this command from the project directory or pass --allow-outside-cwd",
+                "Warning: running from outside the project directory; consider 'cd' into it or pass --allow-outside-cwd to silence this warning.",
                 err=True,
-                fg=typer.colors.RED,
+                fg=typer.colors.YELLOW,
             )
-            raise typer.Exit(code=1)
 
     try:
         svc.run(project_dir.resolve(), template_id)
@@ -256,14 +256,13 @@ def publish(
     Run all publish resolvers defined by the template and persist results into project.yaml.
     """
     # Safety: require running from the project directory unless explicitly allowed
-    if not allow_outside_cwd:
-        if project_dir.resolve() != Path(".").resolve():
+    if project_dir.resolve() != Path(".").resolve():
+        if not allow_outside_cwd:
             typer.secho(
-                "Error: run this command from the project directory or pass --allow-outside-cwd",
+                "Warning: running from outside the project directory; consider 'cd' into it or pass --allow-outside-cwd to silence this warning.",
                 err=True,
-                fg=typer.colors.RED,
+                fg=typer.colors.YELLOW,
             )
-            raise typer.Exit(code=1)
 
     try:
         pub = svc.publish(project_dir.resolve(), template_id)

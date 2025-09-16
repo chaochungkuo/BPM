@@ -44,17 +44,18 @@ def _load_stores_yaml() -> dict:
 
 @app.command("add")
 def add(
-    source: Path = typer.Argument(..., help="Local path or git URL of a BRS"),
+    source: str = typer.Argument(..., help="Local path or Git URL of a BRS"),
     activate: bool = typer.Option(False, "--activate/--no-activate", help="Activate after adding"),
 ):
     """
-    Add a BRS to the cache registry (local path). Optionally activate it immediately.
+    Add a BRS to the cache registry from a local path or a Git URL. Optionally activate it immediately.
 
     Example:
     - bpm resource add ./my-brs --activate
+    - bpm resource add https://github.com/your-org/UKA_GF_BRS --activate
     """
     try:
-        rec = reg.add(str(source), activate=activate)
+        rec = reg.add(source, activate=activate)
         # Support both dataclass (StoreRecord) and dict returns
         rec_id = getattr(rec, "id", None)
         if rec_id is None and isinstance(rec, dict):
