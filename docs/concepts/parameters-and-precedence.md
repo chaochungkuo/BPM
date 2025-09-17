@@ -36,6 +36,8 @@ run:
 Notes:
 - Types supported: `str`, `int`, `float`, `bool` (CLI strings are coerced to these types).
 - `${ctx.*}` in defaults: safe to use with `ctx.project.*` and `ctx.template.*`. Avoid referencing `ctx.params.*` inside defaults.
+- Path validation (optional): add `exists: file|dir|any` on a param to make BPM check the given path exists before rendering. Example:
+  `input_dir: { type: str, required: true, exists: dir }`
 
 ## CLI Overrides (–param)
 - Format: `--param KEY=VALUE` (repeatable). No spaces around `=`.

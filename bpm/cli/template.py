@@ -27,8 +27,15 @@ def _complete_template_ids(ctx, incomplete: str):
     return [i for i in ids if i.startswith(incomplete)]
 
 
-@app.command("render")
+@app.command(
+    "render",
+    context_settings={
+        "allow_extra_args": True,
+        "ignore_unknown_options": True,
+    },
+)
 def render(
+    ctx: typer.Context,
     template_id: str = typer.Argument(..., help="Template id within the active BRS", autocompletion=_complete_template_ids),
     project_dir: Path = typer.Option(Path("."), "--dir", help="Project directory (contains project.yaml)"),
     dry: bool = typer.Option(False, "--dry", help="Dry-run: only show plan, no changes"),
@@ -54,15 +61,86 @@ def render(
                     fg=typer.colors.YELLOW,
                 )
 
+    # Support template-defined CLI flags by mapping them into --param KEY=VALUE
+    # Example: if a param declares cli: "--bcl", users can pass "--bcl /path" or "--bcl=/path".
+    # Bool params: "--flag" -> true, "--no-flag" -> false.
+    def _parse_template_flags(extra_args: list[str]) -> list[str]:
+        try:
+            desc = load_desc(template_id)
+        except Exception:
+            return []
+        # Build flag map
+        flag_map = {}
+        for k, ps in (desc.params or {}).items():
+            cli_flag = getattr(ps, "cli", None)
+            if not cli_flag:
+                continue
+            flag_map[str(cli_flag)] = (k, str(getattr(ps, "type", "str")))
+        out_params: dict[str, str] = {}
+        i = 0
+        n = len(extra_args or [])
+        while i < n:
+            arg = extra_args[i]
+            if not arg.startswith("--"):
+                i += 1
+                continue
+            # Handle --no-flag for bools
+            if arg.startswith("--no-"):
+                base = "--" + arg[5:]
+                if base in flag_map and flag_map[base][1] == "bool":
+                    pname, _ = flag_map[base]
+                    out_params[pname] = "false"
+                    i += 1
+                    continue
+            # Handle --flag=value
+            if "=" in arg:
+                flag, value = arg.split("=", 1)
+                if flag in flag_map:
+                    pname, ptype = flag_map[flag]
+                    out_params[pname] = value
+                    i += 1
+                    continue
+            # Handle --flag [value]
+            if arg in flag_map:
+                pname, ptype = flag_map[arg]
+                if ptype == "bool":
+                    out_params[pname] = "true"
+                    i += 1
+                    continue
+                # need a value from next token
+                if i + 1 < n and not extra_args[i + 1].startswith("-"):
+                    out_params[pname] = extra_args[i + 1]
+                    i += 2
+                    continue
+                else:
+                    # missing value; ignore and move on
+                    i += 1
+                    continue
+            # Unknown flag: ignore here; Typer ignored it already due to context settings
+            i += 1
+        # Convert to KEY=VALUE list
+        return [f"{k}={v}" for k, v in out_params.items()]
+
     try:
+        # Merge explicit --param with mapped template flags
+        extra_params = _parse_template_flags(list(ctx.args or []))
+        merged_params = (param or []) + extra_params
         plan = svc.render(
             project_dir.resolve(),
             template_id,
-            params_kv=param,
+            params_kv=merged_params,
             dry=dry,
             adhoc_out=out.resolve() if out else None,
         )
     except Exception as e:
+        # Provide a helpful hint for ad-hoc rendering when project.yaml is missing
+        msg = str(e)
+        if (isinstance(e, FileNotFoundError) or "project.yaml not found" in msg) and not out:
+            typer.secho(
+                "Hint: To render without a project, pass --out /path to render in ad-hoc mode.",
+                err=True,
+                fg=typer.colors.YELLOW,
+            )
         typer.secho(f"Error: {e}", err=True, fg=typer.colors.RED)
         raise typer.Exit(code=1)
 
@@ -110,6 +188,7 @@ def info_cmd(
                 "default": getattr(ps, "default", None),
                 "cli": getattr(ps, "cli", None),
                 "description": getattr(ps, "description", None),
+                "exists": getattr(ps, "exists", None),
             }
         )
     files_list = [f"{src} -> {dst}" for (src, dst) in (desc.render_files or [])]
@@ -167,6 +246,7 @@ def info_cmd(
             t3.add_column("Required", width=9)
             t3.add_column("Default")
             t3.add_column("CLI")
+            t3.add_column("Exists", width=7)
             t3.add_column("Description")
             if params_list:
                 for p in params_list:
@@ -176,6 +256,7 @@ def info_cmd(
                         "yes" if p.get("required") else "no",
                         "" if p.get("default") is None else str(p.get("default")),
                         str(p.get("cli") or ""),
+                        str(p.get("exists") or ""),
                         str(p.get("description") or ""),
                     )
             console.print(t3)
@@ -184,7 +265,7 @@ def info_cmd(
             t4 = Table(title="Hooks", box=box.MINIMAL_DOUBLE_HEAD, header_style="bold cyan")
             t4.add_column("Stage", style="bold")
             t4.add_column("Callables")
-            for stage in ("post_render", "pre_run", "post_run"):
+            for stage in ("pre_render", "post_render", "pre_run", "post_run"):
                 entries = hooks_map.get(stage) or []
                 t4.add_row(stage, "\n".join(map(str, entries)) if entries else "-")
             console.print(t4)

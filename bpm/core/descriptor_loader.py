@@ -17,12 +17,16 @@ class ParamSpec:
         cli: CLI flag for this param (e.g., "--name").
         required: Whether this param must be provided.
         default: Default value if not provided by project or CLI.
+        exists: Optional existence check for path-like params. One of
+                None | 'file' | 'dir' | 'any'. If set, BPM will validate
+                the path exists before rendering.
     """
     name: str
     type: str = "str"
     cli: str | None = None
     required: bool = False
     default: Any = None
+    exists: str | None = None
 
 
 @dataclass
@@ -81,12 +85,27 @@ def load(template_id: str) -> Descriptor:
     # Parse params into ParamSpec objects
     params: Dict[str, ParamSpec] = {}
     for k, v in (data.get("params") or {}).items():
+        # Normalize existence declaration: support 'exists' as bool|'file'|'dir'|'any'
+        # and legacy 'must_exist: true' as an alias for 'exists: any'.
+        exists_val = v.get("exists")
+        if exists_val is True:
+            exists_str = "any"
+        elif isinstance(exists_val, str):
+            exists_str = exists_val.lower()
+            if exists_str not in ("file", "dir", "any"):
+                raise ValueError(f"Invalid exists value for param '{k}': {exists_val}")
+        elif v.get("must_exist"):
+            exists_str = "any"
+        else:
+            exists_str = None
+
         params[k] = ParamSpec(
             name=k,
             type=str(v.get("type", "str")),
             cli=v.get("cli"),
             required=bool(v.get("required", False)),
             default=v.get("default"),
+            exists=exists_str,
         )
 
     # Render section

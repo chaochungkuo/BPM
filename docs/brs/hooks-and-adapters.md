@@ -16,6 +16,8 @@ Small Python functions that prepare the environment or collect results.
 - In `template_config.yaml` or `workflow.yaml`:
 ```
 hooks:
+  pre_render:
+    - hooks.prepare:main
   post_render:
     - hooks.prepare:main
   pre_run:

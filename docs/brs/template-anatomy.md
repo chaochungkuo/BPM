@@ -17,6 +17,7 @@ description: Minimal demo template
 params:
   sample_id: {type: str, required: true}
   threads:   {type: int, default: 8}
+  input_dir: {type: str, required: true, exists: dir}
 render:
   into: "${ctx.project.name}/${ctx.template.id}/"
   files:

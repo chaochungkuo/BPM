@@ -10,19 +10,22 @@ has_toc: true
 Keep the lifecycle simple and predictable.
 
 ## Lifecycle (templates)
-1) Render: Jinja renders files to the folder resolved from `render.into`.
-2) Hooks: optional `post_render` runs (project mode only).
-3) Run: BPM executes `run.entry` (default `run.sh`) in that folder.
-4) Hooks: optional `pre_run` and `post_run` run around the entry.
-5) Status: on success, template status becomes `completed` in `project.yaml`.
+1) Hooks: optional `pre_render` runs before any files are written. Runs in both project and ad‑hoc modes.
+2) Render: Jinja renders files to the folder resolved from `render.into`.
+3) Hooks: optional `post_render` runs (project and ad‑hoc modes).
+4) Run: BPM executes `run.entry` (default `run.sh`) in that folder.
+5) Hooks: optional `pre_run` and `post_run` run around the entry.
+6) Status: on success, template status becomes `completed` in `project.yaml`.
 
 Notes
 - Hooks are Python callables in the active BRS, referenced as dotted paths.
-- Ad‑hoc mode (`--out`) skips hooks and does not touch `project.yaml`.
+- Ad‑hoc mode (`--out`) runs `pre_render` and `post_render`, but skips `pre_run` and `post_run`. It does not touch `project.yaml`.
 
 ## Hook config (template_config.yaml)
 ```
 hooks:
+  pre_render:
+    - hooks.prepare_env:main
   post_render:
     - hooks.prepare_env:main
   pre_run:

@@ -125,7 +125,34 @@ def render(
         }
     final_params = resolve_params(desc, cli_params, project, ctx_like)
 
-    # 4) build ctx and render
+    # 3b) optional param existence validation (paths)
+    missing_paths: list[str] = []
+    for pname, pspec in (desc.params or {}).items():
+        kind = getattr(pspec, "exists", None)
+        if not kind:
+            continue
+        val = final_params.get(pname)
+        # Only validate string-like values
+        if not isinstance(val, (str,)) or val.strip() == "":
+            continue
+        raw = Path(val).expanduser()
+        if raw.is_absolute():
+            p = raw.resolve()
+        else:
+            base = Path.cwd() if adhoc_out else project_dir
+            p = (base / raw).resolve()
+        if kind == "file" and not p.is_file():
+            missing_paths.append(f"{pname} -> {p}")
+        elif kind == "dir" and not p.is_dir():
+            missing_paths.append(f"{pname} -> {p}")
+        elif kind == "any" and not p.exists():
+            missing_paths.append(f"{pname} -> {p}")
+    if missing_paths:
+        raise ValueError(
+            "Input path(s) not found or wrong type: " + ", ".join(missing_paths)
+        )
+
+    # 4) build ctx and run pre_render hooks (if any), then render
     # In ad-hoc mode, render into the provided out directory directly, ignoring desc.render_into
     if adhoc_out:
         target_cwd = Path(adhoc_out).resolve()
@@ -133,18 +160,23 @@ def render(
         # Override render_into to "." so files render directly under adhoc_out
         desc_eff = replace(desc, render_into=".")
         ctx = build_ctx(None, template_id, final_params, {"repo": brs_cfg.repo, "authors": brs_cfg.authors, "hosts": brs_cfg.hosts, "settings": brs_cfg.settings}, target_cwd)
+        # Hooks: pre_render (run in both project and ad-hoc modes)
+        if desc.hooks and desc.hooks.get("pre_render"):
+            run_hooks(desc.hooks["pre_render"], ctx)
         plan = jinja_render(desc_eff, ctx, dry=dry)
     else:
         ctx = build_ctx(project, template_id, final_params, {"repo": brs_cfg.repo, "authors": brs_cfg.authors, "hosts": brs_cfg.hosts, "settings": brs_cfg.settings}, project_dir)
+        # Hooks: pre_render (project mode)
+        if desc.hooks and desc.hooks.get("pre_render"):
+            run_hooks(desc.hooks["pre_render"], ctx)
         plan = jinja_render(desc, ctx, dry=dry)
 
     if dry:
         return [(p.action, p.src, p.dst) for p in plan]
 
-    # 5) hooks: post_render (skip in ad-hoc mode)
-    if not adhoc_out:
-        if desc.hooks and desc.hooks.get("post_render"):
-            run_hooks(desc.hooks["post_render"], ctx)
+    # 5) hooks: post_render (now runs in both project and ad-hoc modes)
+    if desc.hooks and desc.hooks.get("post_render"):
+        run_hooks(desc.hooks["post_render"], ctx)
 
     # 6) persist project state or write ad-hoc meta
     if adhoc_out:
