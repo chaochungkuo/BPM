@@ -21,6 +21,7 @@ def init(
     outdir: Path = typer.Option(Path("."), "--outdir", help="Directory to create the project in"),
     authors: str = typer.Option("", "--author", help="Comma-separated author ids (e.g., ckuo,lgan)"),
     host: str = typer.Option(None, "--host", help="Explicit host key to record in project_path (overrides auto-detect)"),
+    adopt: list[Path] = typer.Option(None, "--adopt", help="Adopt one or more ad-hoc folders (with bpm.meta.yaml) into the new project", show_default=False),
 ):
     """
     Create a new project folder and write project.yaml using the active BRS policy.
@@ -39,6 +40,14 @@ def init(
         # Unexpected errors → still tell the user, non-zero exit
         typer.secho(f"Unexpected error: {e}", err=True, fg=typer.colors.RED)
         raise typer.Exit(code=2)
+
+    # Optionally adopt ad-hoc folders
+    if adopt:
+        try:
+            svc.adopt(pdir, [Path(a).resolve() for a in adopt], on_exists="merge")
+            typer.secho(f"[ok] Adopted {len(adopt)} ad-hoc folder(s) into project.", fg=typer.colors.GREEN)
+        except Exception as e:
+            typer.secho(f"Warning: failed to adopt ad-hoc folders: {e}", err=True, fg=typer.colors.YELLOW)
 
     typer.secho(f"[ok] Created project at: {pdir}", fg=typer.colors.GREEN)
 
@@ -121,6 +130,23 @@ def info(
     typer.echo(f"status: {status}")
     typer.echo(f"authors: {authors_disp}")
     typer.echo(f"templates: {templates}")
+
+
+@app.command("adopt")
+def adopt(
+    from_dir: list[Path] = typer.Option(..., "--from", help="Ad-hoc folder(s) to adopt (contain bpm.meta.yaml)", show_default=False),
+    project_dir: Path = typer.Option(Path("."), "--dir", help="Project directory (contains project.yaml)"),
+    on_exists: str = typer.Option("merge", "--on-exists", help="Collision policy: skip|merge|overwrite", show_default=True),
+):
+    """
+    Insert one or more ad-hoc bpm.meta.yaml records into an existing project.yaml.
+    """
+    try:
+        svc.adopt(project_dir.resolve(), [Path(d).resolve() for d in from_dir], on_exists=on_exists)
+    except Exception as e:
+        typer.secho(f"Error: {e}", err=True, fg=typer.colors.RED)
+        raise typer.Exit(code=1)
+    typer.secho("[ok] Adoption completed.", fg=typer.colors.GREEN)
 
 
 @app.command("status")

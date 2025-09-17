@@ -8,6 +8,7 @@ from bpm.core import brs_loader
 from bpm.core.project_io import load as load_project, save as save_project, project_file_path
 from bpm.utils.time import now_iso
 from bpm.utils.table import kv_aligned
+from bpm.io.yamlio import safe_load_yaml
 
 
 def _policy_regex_and_message(settings: Dict[str, Any]) -> tuple[Optional[re.Pattern[str]], Optional[str]]:
@@ -169,3 +170,86 @@ def status_table(project_dir: Path) -> str:
     for t in p.get("templates") or []:
         lines.append(f"- {t.get('id')}  [{t.get('status')}]")
     return "\n".join(lines)
+
+
+# ----------------------------- adoption -----------------------------
+
+def _load_meta(adhoc_dir: Path) -> Dict[str, Any]:
+    p = adhoc_dir / "bpm.meta.yaml"
+    if not p.exists():
+        raise FileNotFoundError(f"bpm.meta.yaml not found in {adhoc_dir}")
+    return safe_load_yaml(p)
+
+
+def _entry_from_meta(meta: Dict[str, Any]) -> Dict[str, Any]:
+    src = meta.get("source") or {}
+    tid = str(src.get("template_id") or "").strip()
+    if not tid:
+        raise ValueError("Invalid bpm.meta.yaml: missing source.template_id")
+    params = meta.get("params") or {}
+    published = meta.get("published") or {}
+    status = meta.get("status") or ("completed" if published else "active")
+    return {
+        "id": tid,
+        "params": params,
+        "published": published,
+        "status": status,
+        "source": src,
+    }
+
+
+def _merge_entries(existing: Dict[str, Any], incoming: Dict[str, Any]) -> Dict[str, Any]:
+    out = dict(existing)
+    # Params: incoming wins
+    out["params"] = {**(existing.get("params") or {}), **(incoming.get("params") or {})}
+    # Published: incoming wins
+    out["published"] = {**(existing.get("published") or {}), **(incoming.get("published") or {})}
+    # Status: take incoming
+    out["status"] = incoming.get("status") or existing.get("status")
+    # Source: keep both (existing under source_prev)
+    if existing.get("source") and incoming.get("source") != existing.get("source"):
+        out["source_prev"] = existing.get("source")
+    out["source"] = incoming.get("source") or existing.get("source")
+    return out
+
+
+def adopt(
+    project_dir: Path,
+    adhoc_dirs: list[Path],
+    *,
+    on_exists: str = "merge",  # one of: skip|merge|overwrite
+) -> Path:
+    """
+    Insert one or more ad-hoc bpm.meta.yaml records into an existing project.yaml.
+
+    Args:
+      project_dir: Project directory containing project.yaml
+      adhoc_dirs: List of ad-hoc directories to adopt (each must contain bpm.meta.yaml)
+      on_exists: Collision policy for template ids: skip|merge|overwrite
+
+    Returns: project_dir (for convenience)
+    """
+    if on_exists not in ("skip", "merge", "overwrite"):
+        raise ValueError("on_exists must be one of: skip|merge|overwrite")
+
+    project = load_project(project_dir)
+    tlist: list[Dict[str, Any]] = project.setdefault("templates", [])
+
+    for d in adhoc_dirs or []:
+        meta = _load_meta(Path(d).resolve())
+        entry_in = _entry_from_meta(meta)
+        tid = entry_in.get("id")
+        # Find existing entry
+        idx = next((i for i, t in enumerate(tlist) if t.get("id") == tid), None)
+        if idx is None:
+            tlist.append(entry_in)
+        else:
+            if on_exists == "skip":
+                continue
+            if on_exists == "overwrite":
+                tlist[idx] = entry_in
+            elif on_exists == "merge":
+                tlist[idx] = _merge_entries(tlist[idx], entry_in)
+
+    save_project(project_dir, project)
+    return project_dir

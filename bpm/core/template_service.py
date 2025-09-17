@@ -300,7 +300,7 @@ def publish(project_dir: Path, template_id: str, *, adhoc_out: Optional[Path] = 
         meta = _load_meta(out_dir)
         params = meta.get("params") or {}
         ctx = build_ctx(None, template_id, params, {"repo": brs_cfg.repo, "authors": brs_cfg.authors, "hosts": brs_cfg.hosts, "settings": brs_cfg.settings}, out_dir)
-        pub = resolve_publish(desc.publish, ctx, None)
+        pub = resolve_publish(desc.publish, ctx, {})
         # Persist published to meta
         meta["published"] = pub
         _save_meta(out_dir, meta)
