@@ -27,14 +27,15 @@ app.add_typer(resource_cli.app, name="resource", help="Manage BRS resource store
 app.add_typer(workflow_cli.app, name="workflow", help="Render and run workflows from the active BRS.")
 
 
-@app.callback()
+@app.callback(invoke_without_command=True)
 def _version_option(
     version: bool = typer.Option(
-        None,
+        False,
         "--version",
         "-V",
         help="Show BPM version and exit",
         is_eager=True,
+        rich_help_panel="Global Options",
     ),
 ):
     if version:
@@ -42,6 +43,14 @@ def _version_option(
 
         typer.echo(f"bpm {__version__}")
         raise typer.Exit()
+
+
+@app.command("version")
+def version_cmd():
+    """Show BPM version and exit."""
+    from bpm import __version__
+
+    typer.echo(f"bpm {__version__}")
 
 if __name__ == "__main__":
     app()
