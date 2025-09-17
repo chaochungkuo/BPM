@@ -15,7 +15,7 @@ from bpm.core.project_io import load as load_project, save as save_project
 from bpm.core.publish_resolver import resolve_all as resolve_publish
 
 from bpm.io.exec import run_process
-from bpm.io.yamlio import safe_dump_yaml
+from bpm.io.yamlio import safe_dump_yaml, safe_load_yaml
 
 
 # ----------------------------- helpers -----------------------------
@@ -202,7 +202,22 @@ def render(
     return [(p.action, p.src, p.dst) for p in plan]
 
 
-def run(project_dir: Path, template_id: str) -> None:
+def _meta_path(out_dir: Path) -> Path:
+    return out_dir / "bpm.meta.yaml"
+
+
+def _load_meta(out_dir: Path) -> Dict[str, Any]:
+    p = _meta_path(out_dir)
+    if not p.exists():
+        raise FileNotFoundError(f"bpm.meta.yaml not found in {out_dir}")
+    return safe_load_yaml(p)
+
+
+def _save_meta(out_dir: Path, meta: Dict[str, Any]) -> None:
+    safe_dump_yaml(_meta_path(out_dir), meta)
+
+
+def run(project_dir: Path, template_id: str, *, adhoc_out: Optional[Path] = None) -> None:
     """
     Execute the template's run entry (e.g., ./run.sh) with hooks.
 
@@ -215,39 +230,62 @@ def run(project_dir: Path, template_id: str) -> None:
     """
     brs_cfg = brs_loader.load_config()
     desc = load_desc(template_id)
-    project = load_project(project_dir)
 
-    # Build ctx with the stored params from project.yaml (if any)
-    # If this template hasn't been rendered, params may be absent → {}
-    params = {}
-    for t in project.get("templates") or []:
-        if t.get("id") == template_id:
-            params = t.get("params") or {}
-            break
+    if adhoc_out:
+        # Ad-hoc mode: read params from bpm.meta.yaml, run hooks + entry, persist status
+        out_dir = Path(adhoc_out).resolve()
+        meta = _load_meta(out_dir)
+        params = meta.get("params") or {}
+        ctx = build_ctx(None, template_id, params, {"repo": brs_cfg.repo, "authors": brs_cfg.authors, "hosts": brs_cfg.hosts, "settings": brs_cfg.settings}, out_dir)
 
-    ctx = build_ctx(project, template_id, params, {"repo": brs_cfg.repo, "authors": brs_cfg.authors, "hosts": brs_cfg.hosts, "settings": brs_cfg.settings}, project_dir)
+        # Hooks: pre_run (enabled in ad-hoc)
+        if desc.hooks and desc.hooks.get("pre_run"):
+            run_hooks(desc.hooks["pre_run"], ctx)
 
-    # Hooks: pre_run
-    if desc.hooks and desc.hooks.get("pre_run"):
-        run_hooks(desc.hooks["pre_run"], ctx)
+        entry = desc.run_entry or "run.sh"
+        run_process([f"./{entry}"], cwd=out_dir)
 
-    # Execute run.sh (or the configured entry) in the same folder as render.into
-    into = interpolate_ctx_string(desc.render_into, ctx)
-    out_dir = (project_dir / into).resolve()
-    entry = desc.run_entry or "run.sh"
-    run_process([f"./{entry}"], cwd=out_dir)
+        # Hooks: post_run (enabled in ad-hoc)
+        if desc.hooks and desc.hooks.get("post_run"):
+            run_hooks(desc.hooks["post_run"], ctx)
 
-    # Hooks: post_run
-    if desc.hooks and desc.hooks.get("post_run"):
-        run_hooks(desc.hooks["post_run"], ctx)
+        # Persist status to meta
+        meta["status"] = "completed"
+        _save_meta(out_dir, meta)
+    else:
+        # Project mode
+        project = load_project(project_dir)
 
-    # Update status
-    entry_dict = _ensure_template_entry(project, template_id)
-    entry_dict["status"] = "completed"
-    save_project(project_dir, project)
+        # Build ctx with the stored params from project.yaml (if any)
+        params = {}
+        for t in project.get("templates") or []:
+            if t.get("id") == template_id:
+                params = t.get("params") or {}
+                break
+
+        ctx = build_ctx(project, template_id, params, {"repo": brs_cfg.repo, "authors": brs_cfg.authors, "hosts": brs_cfg.hosts, "settings": brs_cfg.settings}, project_dir)
+
+        # Hooks: pre_run
+        if desc.hooks and desc.hooks.get("pre_run"):
+            run_hooks(desc.hooks["pre_run"], ctx)
+
+        # Execute run.sh (or the configured entry) in the same folder as render.into
+        into = interpolate_ctx_string(desc.render_into, ctx)
+        out_dir = (project_dir / into).resolve()
+        entry = desc.run_entry or "run.sh"
+        run_process([f"./{entry}"], cwd=out_dir)
+
+        # Hooks: post_run
+        if desc.hooks and desc.hooks.get("post_run"):
+            run_hooks(desc.hooks["post_run"], ctx)
+
+        # Update status
+        entry_dict = _ensure_template_entry(project, template_id)
+        entry_dict["status"] = "completed"
+        save_project(project_dir, project)
 
 
-def publish(project_dir: Path, template_id: str) -> Dict[str, Any]:
+def publish(project_dir: Path, template_id: str, *, adhoc_out: Optional[Path] = None) -> Dict[str, Any]:
     """
     Execute all publish resolvers for a template and persist to project.yaml.
 
@@ -256,17 +294,28 @@ def publish(project_dir: Path, template_id: str) -> Dict[str, Any]:
     """
     brs_cfg = brs_loader.load_config()
     desc = load_desc(template_id)
-    project = load_project(project_dir)
 
-    # Build ctx with stored params
-    params = {}
-    for t in project.get("templates") or []:
-        if t.get("id") == template_id:
-            params = t.get("params") or {}
-            break
+    if adhoc_out:
+        out_dir = Path(adhoc_out).resolve()
+        meta = _load_meta(out_dir)
+        params = meta.get("params") or {}
+        ctx = build_ctx(None, template_id, params, {"repo": brs_cfg.repo, "authors": brs_cfg.authors, "hosts": brs_cfg.hosts, "settings": brs_cfg.settings}, out_dir)
+        pub = resolve_publish(desc.publish, ctx, None)
+        # Persist published to meta
+        meta["published"] = pub
+        _save_meta(out_dir, meta)
+        return pub
+    else:
+        project = load_project(project_dir)
+        # Build ctx with stored params
+        params = {}
+        for t in project.get("templates") or []:
+            if t.get("id") == template_id:
+                params = t.get("params") or {}
+                break
 
-    ctx = build_ctx(project, template_id, params, {"repo": brs_cfg.repo, "authors": brs_cfg.authors, "hosts": brs_cfg.hosts, "settings": brs_cfg.settings}, project_dir)
+        ctx = build_ctx(project, template_id, params, {"repo": brs_cfg.repo, "authors": brs_cfg.authors, "hosts": brs_cfg.hosts, "settings": brs_cfg.settings}, project_dir)
 
-    pub = resolve_publish(desc.publish, ctx, project)
-    save_project(project_dir, project)
-    return pub
+        pub = resolve_publish(desc.publish, ctx, project)
+        save_project(project_dir, project)
+        return pub
