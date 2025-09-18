@@ -83,6 +83,7 @@ def info(
         return f"{name} ({aff})" if aff else str(name)
     authors_disp = ", ".join(_author_display(a) for a in authors_raw)
     templates = [t.get("id") for t in (data.get("templates") or [])]
+    templates_full = list(data.get("templates") or [])
 
     fmt = (format or "table").lower()
 
@@ -96,6 +97,7 @@ def info(
                     "status": status,
                     "authors": authors_ids,
                     "templates": templates,
+                    "templates_full": templates_full,
                 },
                 indent=2,
             )
@@ -123,6 +125,66 @@ def info(
             table.add_row("Authors", authors_disp)
             table.add_row("Templates", ", ".join(map(str, templates)))
             Console().print(table)
+
+            # Detailed templates table (3 columns: ID, Status, Key-Value)
+            if templates_full:
+                t2 = Table(
+                    title="Templates",
+                    box=box.MINIMAL_DOUBLE_HEAD,
+                    header_style="bold cyan",
+                )
+                t2.add_column("ID", style="cyan", no_wrap=True)
+                t2.add_column("Status", style="bold", width=10)
+                t2.add_column("Key-Value", overflow="fold")
+
+                def _fmt_bool(v):
+                    return "true" if bool(v) else "false"
+
+                def _kv_block(t: dict) -> str:
+                    lines: list[str] = []
+                    # Params
+                    params = t.get("params") or {}
+                    lines.append("[cyan]Params[/cyan]")
+                    if params:
+                        for k in sorted(params.keys()):
+                            v = params.get(k)
+                            if isinstance(v, bool):
+                                v = _fmt_bool(v)
+                            lines.append(f"[green]{k}[/green] {v}")
+                    else:
+                        lines.append("(none)")
+
+                    # Published
+                    pub = t.get("published") or {}
+                    lines.append("")
+                    lines.append("[cyan]Published[/cyan]")
+                    if pub:
+                        for k in sorted(pub.keys()):
+                            sv = str(pub.get(k))
+                            lines.append(f"[green]{k}[/green] {sv}")
+                    else:
+                        lines.append("(none)")
+
+                    # Source
+                    src = t.get("source") or {}
+                    lines.append("")
+                    lines.append("[cyan]Source[/cyan]")
+                    if src:
+                        for key in ("brs_id", "brs_version", "template_id"):
+                            if key in src and src.get(key) is not None:
+                                lines.append(f"[green]{key}[/green] {src.get(key)}")
+                    else:
+                        lines.append("(none)")
+
+                    return "\n".join(lines)
+
+                for t in templates_full:
+                    t2.add_row(
+                        str(t.get("id")),
+                        str(t.get("status", "")),
+                        _kv_block(t),
+                    )
+                Console().print(t2)
             return
 
     # plain (default; preserves existing test expectations)
@@ -130,6 +192,25 @@ def info(
     typer.echo(f"status: {status}")
     typer.echo(f"authors: {authors_disp}")
     typer.echo(f"templates: {templates}")
+    if templates_full:
+        typer.echo("templates_detail:")
+        for t in templates_full:
+            tid = t.get("id")
+            typer.echo(f"- id: {tid}")
+            typer.echo(f"  status: {t.get('status')}")
+            if t.get("params"):
+                typer.echo("  params:")
+                for k, v in (t.get("params") or {}).items():
+                    if isinstance(v, bool):
+                        v = "true" if v else "false"
+                    typer.echo(f"    {k}: {v}")
+            if t.get("published"):
+                typer.echo("  published:")
+                for k, v in (t.get("published") or {}).items():
+                    typer.echo(f"    {k}: {v}")
+            if t.get("source"):
+                s = t.get("source") or {}
+                typer.echo(f"  source: brs={s.get('brs_id','')} ver={s.get('brs_version','')} tpl={s.get('template_id','')}")
 
 
 @app.command("adopt")

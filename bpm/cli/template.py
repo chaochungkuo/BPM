@@ -104,10 +104,19 @@ def render(
             if arg in flag_map:
                 pname, ptype = flag_map[arg]
                 if ptype == "bool":
-                    out_params[pname] = "true"
+                    # Support forms:
+                    #   --flag            -> true
+                    #   --flag true/false -> parsed boolean (consume next token)
+                    val = "true"
+                    if i + 1 < n and not extra_args[i + 1].startswith("-"):
+                        nxt = extra_args[i + 1].strip().lower()
+                        if nxt in ("true", "false", "1", "0", "yes", "no", "on", "off"):
+                            val = nxt
+                            i += 1  # consume next as value
+                    out_params[pname] = val
                     i += 1
                     continue
-                # need a value from next token
+                # need a value from next token for non-bool
                 if i + 1 < n and not extra_args[i + 1].startswith("-"):
                     out_params[pname] = extra_args[i + 1]
                     i += 2
@@ -250,11 +259,16 @@ def info_cmd(
             t3.add_column("Description")
             if params_list:
                 for p in params_list:
+                    dval = p.get("default")
+                    if isinstance(dval, bool):
+                        dstr = "true" if dval else "false"
+                    else:
+                        dstr = "" if dval is None else str(dval)
                     t3.add_row(
                         str(p.get("name")),
                         str(p.get("type")),
                         "yes" if p.get("required") else "no",
-                        "" if p.get("default") is None else str(p.get("default")),
+                        dstr,
                         str(p.get("cli") or ""),
                         str(p.get("exists") or ""),
                         str(p.get("description") or ""),
@@ -290,8 +304,13 @@ def info_cmd(
         typer.echo(f"  - {m}")
     typer.echo("params:")
     for p in params_list:
+        dval = p.get("default")
+        if isinstance(dval, bool):
+            dstr = "true" if dval else "false"
+        else:
+            dstr = "" if dval is None else str(dval)
         typer.echo(
-            f"  - {p['name']} (type={p['type']}, required={'yes' if p['required'] else 'no'}, default={p['default']}, cli={p['cli']})"
+            f"  - {p['name']} (type={p['type']}, required={'yes' if p['required'] else 'no'}, default={dstr}, cli={p['cli']})"
         )
     typer.echo("required_templates:")
     for r in requires or []:
