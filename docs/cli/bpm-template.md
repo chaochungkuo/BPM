@@ -17,6 +17,7 @@ bpm template render <id> [--dir <project_dir>] [--dry] [--param KEY=VALUE ...] [
 - Ad‑hoc mode: with `--out`, renders into that directory (treats `render.into` as `.`) and writes `bpm.meta.yaml`; skips hooks and project updates.
 - `--dry` prints the plan only; no file changes.
 - Tip: discover template parameters with `bpm template info <id>`.
+- If the template declares `tools:` in its descriptor, render prints a non-fatal warning for tools not found on `PATH` so you can activate the right environment before `run`.
 
 ## run
 ```
@@ -40,7 +41,7 @@ bpm template list [--format table|plain|json]
 ```
 bpm template info <id> [--format table|plain|json]
 ```
-- Shows detailed info for a template: params (type/required/default/cli), render target and files, hooks, dependencies, and publish resolvers.
+- Shows detailed info for a template: params (type/required/default/cli), render target and files, hooks, dependencies, tools, and publish resolvers.
 
 Tips
 - Use `--param` to override descriptor defaults; types are coerced (`int`, `float`, `bool`, `str`).

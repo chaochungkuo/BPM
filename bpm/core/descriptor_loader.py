@@ -27,6 +27,7 @@ class ParamSpec:
     required: bool = False
     default: Any = None
     exists: str | None = None
+    description: str | None = None
 
 
 @dataclass
@@ -54,6 +55,9 @@ class Descriptor:
     required_templates: List[str] = field(default_factory=list)
     publish: Dict[str, Dict[str, Any]] = field(default_factory=dict)
     hooks: Dict[str, List[str]] = field(default_factory=dict)
+    # Environment/tooling hints (non-fatal):
+    tools_required: List[str] = field(default_factory=list)
+    tools_optional: List[str] = field(default_factory=list)
 
 
 def load(template_id: str) -> Descriptor:
@@ -106,6 +110,7 @@ def load(template_id: str) -> Descriptor:
             required=bool(v.get("required", False)),
             default=v.get("default"),
             exists=exists_str,
+            description=v.get("description"),
         )
 
     # Render section
@@ -133,6 +138,22 @@ def load(template_id: str) -> Descriptor:
     # Dependencies can appear as 'required_templates' or legacy 'requires'
     req = data.get("required_templates") or data.get("requires") or []
 
+    # Tools section (optional):
+    # Accept either a simple list (treated as required) or a mapping with
+    #   tools: { required: [...], optional: [...] }
+    tools_required: List[str] = []
+    tools_optional: List[str] = []
+    tools_sec = data.get("tools")
+    if isinstance(tools_sec, list):
+        tools_required = [str(x) for x in tools_sec]
+    elif isinstance(tools_sec, dict):
+        req = tools_sec.get("required") or []
+        opt = tools_sec.get("optional") or []
+        if isinstance(req, list):
+            tools_required = [str(x) for x in req]
+        if isinstance(opt, list):
+            tools_optional = [str(x) for x in opt]
+
     return Descriptor(
         id=template_id,
         description=data.get("description"),
@@ -143,4 +164,6 @@ def load(template_id: str) -> Descriptor:
         required_templates=list(req),
         publish=data.get("publish") or {},
         hooks=data.get("hooks") or {},
+        tools_required=tools_required,
+        tools_optional=tools_optional,
     )

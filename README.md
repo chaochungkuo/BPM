@@ -193,7 +193,7 @@ Pick one of pip, pixi, or conda.
 
 - Pip (user install):
   ```bash
-  python -m pip install bpm
+  python -m pip install bpm-cli
   # or in editable mode if working on sources
   python -m pip install -e .
   ```
@@ -210,7 +210,7 @@ Pick one of pip, pixi, or conda.
   ```bash
   mamba create -n bpm -c conda-forge python>=3.10 typer jinja2 pyyaml rich
   mamba activate bpm
-  python -m pip install bpm  # or: python -m pip install -e .
+  python -m pip install bpm-cli  # or: python -m pip install -e .
   ```
 
 Notes
@@ -218,6 +218,16 @@ Notes
 - Rich is included for nicer table output; if missing, BPM falls back to plain text.
 
 Editable install with pip:
+
+### Releasing to PyPI (maintainers)
+- The GitHub Actions workflow at `.github/workflows/publish.yml` builds sdist/wheels and publishes on GitHub Releases.
+- Pre-releases (marked as pre-release) are published to TestPyPI using the `TEST_PYPI_API_TOKEN` secret.
+- Final releases are published to PyPI using the `PYPI_API_TOKEN` secret.
+- Tag format must be `vX.Y.Z` and match the version in `bpm/_version.py`.
+- Steps to release:
+  1) Update `bpm/_version.py` to the new version.
+  2) Create a GitHub Release with tag `vX.Y.Z` (check or uncheck “This is a pre-release” accordingly).
+  3) The workflow builds and publishes automatically.
 
 ```bash
 python -m pip install -e .[dev]

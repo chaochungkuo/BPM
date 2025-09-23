@@ -12,7 +12,7 @@ BPM supports multiple setup paths. Choose one that fits your workflow.
 
 - User install (latest published):
   ```bash
-  python -m pip install bpm
+  python -m pip install bpm-cli
   ```
 
 - From source (editable) while hacking on BPM:
@@ -47,7 +47,7 @@ pixi run fmt           # black
 
 Then install BPM itself (from PyPI or local source):
 ```bash
-python -m pip install bpm       # from PyPI
+python -m pip install bpm-cli   # from PyPI
 # or
 python -m pip install -e .      # from source checkout
 ```
@@ -56,5 +56,4 @@ python -m pip install -e .      # from source checkout
 
 - Python 3.10 or newer is required.
 - `rich` enhances table output; if absent, BPM falls back to plain text.
-- For isolated CLI installs, `pipx install bpm` also works.
-
+- For isolated CLI installs, `pipx install bpm-cli` also works (command is still `bpm`).

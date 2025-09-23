@@ -130,10 +130,37 @@ def render(
         # Convert to KEY=VALUE list
         return [f"{k}={v}" for k, v in out_params.items()]
 
+    # Best-effort environment/tools availability warning (non-fatal)
+    def _warn_missing_tools(tpl_id: str) -> None:
+        try:
+            desc = load_desc(tpl_id)
+        except Exception:
+            return
+        try:
+            from shutil import which
+        except Exception:
+            return
+        missing_req = [t for t in (desc.tools_required or []) if which(t) is None]
+        missing_opt = [t for t in (desc.tools_optional or []) if which(t) is None]
+        if missing_req or missing_opt:
+            parts = []
+            if missing_req:
+                parts.append(f"required: {', '.join(missing_req)}")
+            if missing_opt:
+                parts.append(f"optional: {', '.join(missing_opt)}")
+            typer.secho(
+                "Warning: tools not found on PATH (" + "; ".join(parts) + ").\n"
+                "         BPM doesn’t manage environments; install/activate the right env before 'bpm template run'.",
+                err=True,
+                fg=typer.colors.YELLOW,
+            )
+
     try:
         # Merge explicit --param with mapped template flags
         extra_params = _parse_template_flags(list(ctx.args or []))
         merged_params = (param or []) + extra_params
+        # Emit non-fatal warnings about missing tools up-front
+        _warn_missing_tools(template_id)
         plan = svc.render(
             project_dir.resolve(),
             template_id,
@@ -204,6 +231,8 @@ def info_cmd(
     hooks_map = desc.hooks or {}
     publish_map = desc.publish or {}
     requires = list(desc.required_templates or [])
+    tools_req = list(getattr(desc, "tools_required", []) or [])
+    tools_opt = list(getattr(desc, "tools_optional", []) or [])
 
     fmt = (format or "table").lower()
     if fmt == "json":
@@ -218,6 +247,10 @@ def info_cmd(
             "hooks": hooks_map,
             "required_templates": requires,
             "publish": publish_map,
+            "tools": {
+                "required": tools_req,
+                "optional": tools_opt,
+            },
         }
         typer.echo(json.dumps(payload, indent=2))
         return
@@ -293,6 +326,15 @@ def info_cmd(
                     resolver = (spec or {}).get("resolver", "")
                     t5.add_row(str(key), str(resolver))
             console.print(t5)
+            # Tools
+            t6 = Table(title="Tools", box=box.MINIMAL_DOUBLE_HEAD, header_style="bold cyan")
+            t6.add_column("Required")
+            t6.add_column("Optional")
+            t6.add_row(
+                ", ".join(tools_req) if tools_req else "-",
+                ", ".join(tools_opt) if tools_opt else "-",
+            )
+            console.print(t6)
             return
 
     # plain output
@@ -318,6 +360,15 @@ def info_cmd(
     typer.echo("publish:")
     for k, spec in publish_map.items():
         typer.echo(f"  - {k}: {(spec or {}).get('resolver')}")
+    typer.echo("tools:")
+    if tools_req:
+        typer.echo("  required:")
+        for t in tools_req:
+            typer.echo(f"    - {t}")
+    if tools_opt:
+        typer.echo("  optional:")
+        for t in tools_opt:
+            typer.echo(f"    - {t}")
 
 
 @app.command("run")

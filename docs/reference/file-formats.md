@@ -15,3 +15,15 @@ has_toc: true
 
 ## template_config.yaml
 - id, description, params, render.into, render.files, run.entry, publish, hooks
+- tools: list or map of required/optional CLI tools to hint environment needs
+
+Param fields:
+- name (map key), type, required, default, cli, exists, description
+
+Examples:
+- Simple list (treated as required):
+  tools: [fastqc, multiqc]
+- Explicit groups:
+  tools:
+    required: [fastqc, multiqc]
+    optional: [bcl-convert]
