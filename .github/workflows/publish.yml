@@ -55,6 +55,10 @@ jobs:
     needs: build
     if: github.event_name == 'release' && github.event.release.prerelease == true
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write   # enable OIDC for Trusted Publishing
+      contents: read
+    environment: testpypi
     steps:
       - name: Download artifacts
         uses: actions/download-artifact@v4
@@ -63,9 +67,8 @@ jobs:
           path: dist
 
       - name: Publish to TestPyPI
-        uses: pypa/gh-action-pypi-publish@v1.9.0
+        uses: pypa/gh-action-pypi-publish@v1.10.0
         with:
-          password: ${{ secrets.TEST_PYPI_API_TOKEN }}
           repository-url: https://test.pypi.org/legacy/
           verbose: true
 
@@ -74,6 +77,10 @@ jobs:
     needs: build
     if: github.event_name == 'release' && github.event.release.prerelease == false
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write   # enable OIDC for Trusted Publishing
+      contents: read
+    environment: pypi
     steps:
       - name: Download artifacts
         uses: actions/download-artifact@v4
@@ -82,7 +89,6 @@ jobs:
           path: dist
 
       - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@v1.9.0
+        uses: pypa/gh-action-pypi-publish@v1.10.0
         with:
-          password: ${{ secrets.PYPI_API_TOKEN }}
           verbose: true
