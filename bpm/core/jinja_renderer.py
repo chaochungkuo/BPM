@@ -56,6 +56,13 @@ def _expand_render_into(desc: Descriptor, ctx: Ctx) -> Path:
     into = interpolate_ctx_string(desc.render_into, ctx)
     # Keep simple, relative to cwd
     target = (ctx.cwd / into).resolve()
+    # If configured, insert an extra parent folder directly above the
+    # final template folder (project mode). Ad-hoc mode disables this
+    # via template_service replacing the descriptor.
+    if getattr(desc, "parent_directory", None):
+        name = target.name
+        parent = target.parent
+        target = (parent / desc.parent_directory / name).resolve()
     return target
 
 

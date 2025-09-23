@@ -158,7 +158,7 @@ def render(
         target_cwd = Path(adhoc_out).resolve()
         target_cwd.mkdir(parents=True, exist_ok=True)
         # Override render_into to "." so files render directly under adhoc_out
-        desc_eff = replace(desc, render_into=".")
+        desc_eff = replace(desc, render_into=".", parent_directory=None)
         ctx = build_ctx(None, template_id, final_params, {"repo": brs_cfg.repo, "authors": brs_cfg.authors, "hosts": brs_cfg.hosts, "settings": brs_cfg.settings}, target_cwd)
         # Hooks: pre_render (run in both project and ad-hoc modes)
         if desc.hooks and desc.hooks.get("pre_render"):
@@ -272,6 +272,9 @@ def run(project_dir: Path, template_id: str, *, adhoc_out: Optional[Path] = None
         # Execute run.sh (or the configured entry) in the same folder as render.into
         into = interpolate_ctx_string(desc.render_into, ctx)
         out_dir = (project_dir / into).resolve()
+        # Insert optional parent_directory between the project folder and template folder
+        if getattr(desc, "parent_directory", None):
+            out_dir = (out_dir.parent / desc.parent_directory / out_dir.name).resolve()
         entry = desc.run_entry or "run.sh"
         run_process([f"./{entry}"], cwd=out_dir)
 

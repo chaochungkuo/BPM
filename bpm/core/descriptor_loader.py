@@ -58,6 +58,8 @@ class Descriptor:
     # Environment/tooling hints (non-fatal):
     tools_required: List[str] = field(default_factory=list)
     tools_optional: List[str] = field(default_factory=list)
+    # Optional extra folder between project and template id in project mode
+    parent_directory: str | None = None
 
 
 def load(template_id: str) -> Descriptor:
@@ -116,6 +118,14 @@ def load(template_id: str) -> Descriptor:
     # Render section
     render = data.get("render") or {}
     into = render.get("into") or "${ctx.project.name}/${ctx.template.id}/"
+    # Allow parent_directory either under render: or at top-level for convenience
+    parent_directory = (
+        render.get("parent_directory")
+        if isinstance(render, dict)
+        else None
+    )
+    if parent_directory is None:
+        parent_directory = data.get("parent_directory")
 
     files_spec = render.get("files") or []
     render_files: List[tuple[str, str]] = []
@@ -166,4 +176,5 @@ def load(template_id: str) -> Descriptor:
         hooks=data.get("hooks") or {},
         tools_required=tools_required,
         tools_optional=tools_optional,
+        parent_directory=parent_directory,
     )
