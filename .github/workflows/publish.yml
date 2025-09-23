@@ -1,32 +1,28 @@
 name: Publish Python Package
 
 on:
-  push:
-    tags:
-      - "v*" # Only publish when you push a tag like v0.1.0
+  release:
+    types: [published]
+  workflow_dispatch:
 
 jobs:
-  build:
+  publish:
     runs-on: ubuntu-latest
+    # Strongly recommended: use an environment that matches PyPI's publisher config
+    environment: pypi
+    permissions:
+      id-token: write   # REQUIRED for OIDC trusted publishing
+      contents: read    # needed by actions/checkout
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.x"
 
-      - name: Install build tools
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install build
-
-      - name: Build package
-        run: python -m build
+      - run: python -m pip install --upgrade build
+      - run: python -m build          # creates dist/*
 
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          password: ${{ secrets.PYPI_API_TOKEN }}
+        # No username/password needed with trusted publishing
