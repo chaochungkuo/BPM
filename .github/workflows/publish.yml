@@ -33,13 +33,7 @@ jobs:
         run: |
           TAG="${GITHUB_REF#refs/tags/v}"
           echo "Tag version: $TAG"
-          PYVER=$(python - <<'PY'
-from pathlib import Path
-ns = {}
-exec((Path('bpm')/'_version.py').read_text(), ns)
-print(ns.get('__version__',''))
-PY
-          )
+          PYVER=$(python -c "from pathlib import Path; ns={}; exec((Path('bpm')/'_version.py').read_text(), ns); print(ns.get('__version__',''))")
           echo "Package version: $PYVER"
           if [ "$TAG" != "$PYVER" ]; then
             echo "Version mismatch: tag v$TAG != bpm/_version.py $PYVER" >&2
@@ -92,4 +86,3 @@ PY
         with:
           password: ${{ secrets.PYPI_API_TOKEN }}
           verbose: true
-
