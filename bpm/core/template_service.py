@@ -1,4 +1,5 @@
 from __future__ import annotations
+import socket
 from dataclasses import dataclass, replace
 from pathlib import Path
 from types import SimpleNamespace
@@ -16,6 +17,7 @@ from bpm.core.publish_resolver import resolve_all as resolve_publish
 
 from bpm.io.exec import run_process
 from bpm.io.yamlio import safe_dump_yaml, safe_load_yaml
+from bpm.models.hostpath import HostPath
 
 
 # ----------------------------- helpers -----------------------------
@@ -60,6 +62,92 @@ def _parse_cli_params(param_pairs: List[str]) -> Dict[str, str]:
             raise ValueError(f"Invalid --param '{pair}'. Expected KEY=VALUE.")
         k, v = pair.split("=", 1)
         out[k.strip()] = v.strip()
+    return out
+
+
+def _hostname() -> str:
+    return socket.gethostname().split(".")[0]
+
+
+def _determine_host_key(project: Optional[Dict[str, Any]], hosts_cfg: Dict[str, Any], settings_cfg: Dict[str, Any]) -> str:
+    """
+    Prefer the project's recorded host if present; otherwise derive from hosts config or fall back to the current host/local.
+    """
+    if project:
+        ppath = str(project.get("project_path") or "")
+        if ":" in ppath:
+            host = ppath.split(":", 1)[0]
+            if host:
+                return host
+    hosts_map = (hosts_cfg or {}).get("hosts") if isinstance(hosts_cfg, dict) else {}
+    short = _hostname()
+    if short in (hosts_map or {}):
+        return short
+    for key, entry in (hosts_map or {}).items():
+        aliases = (entry or {}).get("aliases") or []
+        if short in aliases:
+            return key
+    default_host = (settings_cfg or {}).get("default_host")
+    if default_host and default_host in (hosts_map or {}):
+        return default_host
+    return short or "local"
+
+
+def _is_hostpath_string(val: str) -> bool:
+    if ":" not in val:
+        return False
+    host, rest = val.split(":", 1)
+    return bool(host) and rest.startswith("/")
+
+
+def _hostify_params(params: Dict[str, Any], desc: Descriptor, host_key: str, base_dir: Path) -> Dict[str, Any]:
+    """
+    Convert path-like params (declared with 'exists') to host-aware strings for persistence.
+    """
+    if not desc.params:
+        return dict(params)
+    out = dict(params)
+    for pname, pspec in desc.params.items():
+        if not getattr(pspec, "exists", None):
+            continue
+        val = out.get(pname)
+        if not isinstance(val, str) or not val.strip():
+            continue
+        if _is_hostpath_string(val):
+            continue
+        raw = Path(val).expanduser()
+        if raw.is_absolute():
+            resolved = raw.resolve()
+        else:
+            resolved = (base_dir / raw).resolve()
+        out[pname] = f"{host_key}:{resolved.as_posix()}"
+    return out
+
+
+def _materialize_params(params: Dict[str, Any], desc: Descriptor, hosts_cfg: Dict[str, Any], base_dir: Path) -> Dict[str, Any]:
+    """
+    Convert persisted host-aware params back into local paths for execution time.
+    """
+    if not desc.params:
+        return dict(params)
+    out = dict(params)
+    hosts_map = (hosts_cfg or {}).get("hosts") if isinstance(hosts_cfg, dict) else {}
+    current_host = _hostname()
+    for pname, pspec in desc.params.items():
+        if not getattr(pspec, "exists", None):
+            continue
+        val = out.get(pname)
+        if not isinstance(val, str) or not val.strip():
+            continue
+        if _is_hostpath_string(val):
+            hp = HostPath.from_raw(val, current_host=current_host)
+            out[pname] = hp.materialize(hosts_map or {}, fallback_prefix=None)
+            continue
+        raw = Path(val).expanduser()
+        if raw.is_absolute():
+            out[pname] = str(raw.resolve())
+        else:
+            out[pname] = str((base_dir / raw).resolve())
     return out
 
 
@@ -178,6 +266,10 @@ def render(
     if desc.hooks and desc.hooks.get("post_render"):
         run_hooks(desc.hooks["post_render"], ctx)
 
+    base_for_paths = Path.cwd() if adhoc_out else project_dir
+    host_key = _determine_host_key(project, brs_cfg.hosts, brs_cfg.settings)
+    stored_params = _hostify_params(final_params, desc, host_key, base_for_paths)
+
     # 6) persist project state or write ad-hoc meta
     if adhoc_out:
         # Write bpm.meta.yaml in the output folder with params + source info
@@ -187,12 +279,12 @@ def render(
                 "brs_version": brs_cfg.repo.get("version"),
                 "template_id": template_id,
             },
-            "params": final_params,
+            "params": stored_params,
         }
         safe_dump_yaml(Path(adhoc_out) / "bpm.meta.yaml", meta)
     else:
         entry = _ensure_template_entry(project, template_id)
-        entry["params"] = final_params
+        entry["params"] = stored_params
         entry["status"] = "active"
         # track store meta if you want (optional)
         # entry["store_id"] = brs_cfg.repo.get("id")
@@ -235,7 +327,8 @@ def run(project_dir: Path, template_id: str, *, adhoc_out: Optional[Path] = None
         # Ad-hoc mode: read params from bpm.meta.yaml, run hooks + entry, persist status
         out_dir = Path(adhoc_out).resolve()
         meta = _load_meta(out_dir)
-        params = meta.get("params") or {}
+        params_raw = meta.get("params") or {}
+        params = _materialize_params(params_raw, desc, brs_cfg.hosts, out_dir)
         ctx = build_ctx(None, template_id, params, {"repo": brs_cfg.repo, "authors": brs_cfg.authors, "hosts": brs_cfg.hosts, "settings": brs_cfg.settings}, out_dir)
 
         # Hooks: pre_run (enabled in ad-hoc)
@@ -262,8 +355,8 @@ def run(project_dir: Path, template_id: str, *, adhoc_out: Optional[Path] = None
             if t.get("id") == template_id:
                 params = t.get("params") or {}
                 break
-
-        ctx = build_ctx(project, template_id, params, {"repo": brs_cfg.repo, "authors": brs_cfg.authors, "hosts": brs_cfg.hosts, "settings": brs_cfg.settings}, project_dir)
+        params_local = _materialize_params(params, desc, brs_cfg.hosts, project_dir)
+        ctx = build_ctx(project, template_id, params_local, {"repo": brs_cfg.repo, "authors": brs_cfg.authors, "hosts": brs_cfg.hosts, "settings": brs_cfg.settings}, project_dir)
 
         # Hooks: pre_run
         if desc.hooks and desc.hooks.get("pre_run"):
@@ -301,7 +394,8 @@ def publish(project_dir: Path, template_id: str, *, adhoc_out: Optional[Path] = 
     if adhoc_out:
         out_dir = Path(adhoc_out).resolve()
         meta = _load_meta(out_dir)
-        params = meta.get("params") or {}
+        params_raw = meta.get("params") or {}
+        params = _materialize_params(params_raw, desc, brs_cfg.hosts, out_dir)
         ctx = build_ctx(None, template_id, params, {"repo": brs_cfg.repo, "authors": brs_cfg.authors, "hosts": brs_cfg.hosts, "settings": brs_cfg.settings}, out_dir)
         pub = resolve_publish(desc.publish, ctx, {})
         # Persist published to meta
@@ -317,7 +411,8 @@ def publish(project_dir: Path, template_id: str, *, adhoc_out: Optional[Path] = 
                 params = t.get("params") or {}
                 break
 
-        ctx = build_ctx(project, template_id, params, {"repo": brs_cfg.repo, "authors": brs_cfg.authors, "hosts": brs_cfg.hosts, "settings": brs_cfg.settings}, project_dir)
+        params_local = _materialize_params(params, desc, brs_cfg.hosts, project_dir)
+        ctx = build_ctx(project, template_id, params_local, {"repo": brs_cfg.repo, "authors": brs_cfg.authors, "hosts": brs_cfg.hosts, "settings": brs_cfg.settings}, project_dir)
 
         pub = resolve_publish(desc.publish, ctx, project)
         save_project(project_dir, project)
