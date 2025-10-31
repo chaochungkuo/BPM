@@ -1,8 +1,12 @@
+import logging
 import typer
 from bpm.cli import project as project_cli
 from bpm.cli import template as template_cli
 from bpm.cli import resource as resource_cli
 from bpm.cli import workflow as workflow_cli
+
+if not logging.getLogger().handlers:
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
 
 app = typer.Typer(
     no_args_is_help=True,

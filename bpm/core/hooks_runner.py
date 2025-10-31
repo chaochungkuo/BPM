@@ -4,6 +4,7 @@ import sys
 from dataclasses import dataclass
 from types import ModuleType
 from typing import Any, Iterable, List, Tuple
+import logging
 
 from bpm.core import brs_loader
 
@@ -64,11 +65,16 @@ def _import_callable(call: HookCall) -> Any:
                 pass
 
 
+logger = logging.getLogger("bpm.hooks")
+
+
 def run(hooks: Iterable[str], ctx: Any) -> List[Tuple[str, Any]]:
     results: List[Tuple[str, Any]] = []
     for spec in hooks or []:
+        logger.info("[hook] start %s", spec)
         call = _parse_hook_path(spec)
         fn = _import_callable(call)
         rv = fn(ctx)
+        logger.info("[hook] done %s", spec)
         results.append((spec, rv))
     return results

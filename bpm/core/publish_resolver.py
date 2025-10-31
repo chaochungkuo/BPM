@@ -1,9 +1,13 @@
 from __future__ import annotations
 import importlib
 import sys
+import logging
 from typing import Any, Dict
 
 from bpm.core import brs_loader
+
+
+logger = logging.getLogger("bpm.resolvers")
 
 
 def _purge_module_prefix(prefix: str) -> None:
@@ -100,7 +104,9 @@ def resolve_all(publish_cfg: Dict[str, Dict[str, Any]], ctx: Any, project: Dict[
         args = spec.get("args") or {}
 
         fn = _import_resolver(dotted)
+        logger.info("[resolver] start %s", dotted)
         value = fn(ctx, **args) if args else fn(ctx)
+        logger.info("[resolver] done %s -> %s", dotted, value)
         pub[key] = value
 
     return pub
