@@ -14,3 +14,7 @@ def test_interpolate_missing_value_becomes_empty():
 def test_interpolate_mixed_dict_and_object():
     ctx = {"project": SimpleNamespace(name="P"), "template": {"id": "T"}}
     assert interpolate_ctx_string("${ctx.project.name}/${ctx.template.id}", ctx) == "P/T"
+
+def test_interpolate_none_parent_becomes_empty():
+    ctx = SimpleNamespace(project=None, template=SimpleNamespace(id="T"))
+    assert interpolate_ctx_string("${ctx.project.name}/${ctx.template.id}", ctx) == "/T"

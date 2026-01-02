@@ -26,6 +26,8 @@ def _get_attr_path(ctx: Any, path: str) -> Any:
     """
     cur = ctx
     for part in path.split("."):
+        if cur is None:
+            return None
         if isinstance(cur, Mapping):
             cur = cur[part]
         else:
