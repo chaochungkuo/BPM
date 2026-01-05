@@ -13,4 +13,4 @@ Quick guides for each BPM command group with copy-paste examples.
 - [bpm project](./bpm-project.md): create a project, inspect info/status
 - [bpm resource](./bpm-resource.md): manage BRS stores (add/activate/list/info/update/remove)
 - [bpm template](./bpm-template.md): render, run, and publish templates
-- [bpm workflow](./bpm-workflow.md): render and run workflows
+- [bpm workflow](./bpm-workflow.md): run workflows

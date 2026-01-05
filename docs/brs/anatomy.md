@@ -24,8 +24,8 @@ UKA_GF_BRS/
       README.md              (optional)
   workflows/
     clean/
-      workflow.yaml
-      run.sh.j2
+      workflow_config.yaml
+      run.sh
   hooks/
     env.py
   resolvers/
@@ -35,7 +35,7 @@ UKA_GF_BRS/
 ## Discovery rules
 - Templates: `templates/<id>/template_config.yaml` (preferred) or `template.config.yaml` (legacy).
   - `render.parent_directory` (optional): inserts a folder above the template folder in project mode.
-- Workflows: `workflows/<id>/workflow.yaml`.
+- Workflows: `workflows/<id>/workflow_config.yaml`.
 - Hooks: importable Python modules under `hooks/`.
 - Resolvers: importable Python modules under `resolvers/`.
 

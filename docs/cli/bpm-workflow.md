@@ -7,23 +7,27 @@ has_toc: true
 
 # bpm workflow
 
-Render and run workflows from the active BRS. Workflows do not modify `project.yaml`.
+Run workflows from the active BRS and optionally record run history.
 
-## render
+## list
 ```
-bpm workflow render <id> [--dir <project_dir>] [--dry] [--param KEY=VALUE ...]
+bpm workflow list [--format table|plain|json]
 ```
-- Renders workflow files into `${ctx.project.name}/${ctx.template.id}/` under the project.
-- `--dry` prints a plan of actions without writing files.
-- `--param` overrides descriptor defaults for this invocation.
+- Lists all workflows in the active BRS.
+
+## info
+```
+bpm workflow info <id> [--format table|plain|json]
+```
+- Shows params, run entry/args/env, hooks, and tools for a workflow.
 
 ## run
 ```
-bpm workflow run <id> [--dir <project_dir>]
+bpm workflow run <id> [--project /path/to/project.yaml] [--<param-flag> <value> ...]
 ```
-- Executes the `run.entry` (default `run.sh`) in the rendered folder.
+- Executes the workflow `run.entry` from its workflow folder.
+- `--project` loads project.yaml and exposes it via `ctx`.
+- Workflow params are provided via CLI flags defined in `params.*.cli` (e.g., `--name Alice`).
 
 Notes
-- Use workflows to orchestrate multiple tools without introducing a new engine.
-- Hooks in `workflow.yaml` run around the entry similar to templates.
-
+- Use workflows to orchestrate tools without introducing a new engine.

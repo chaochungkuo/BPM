@@ -9,6 +9,7 @@ has_toc: true
 
 ## project.yaml
 - name, project_path (host-aware), templates[] (id, status, params, published)
+- workflows[] (id, status, params, started_at, finished_at, run_entry, args, error)
 
 ## stores.yaml
 - schema_version, updated, active, stores{id, source, cache_path, version, commit, last_updated}
@@ -16,6 +17,32 @@ has_toc: true
 ## template_config.yaml
 - id, description, params, render.into, render.files, render.parent_directory, run.entry, publish, hooks
 - tools: list or map of required/optional CLI tools to hint environment needs
+
+## workflow_config.yaml
+- id, description, params, run.entry, run.args, run.env, hooks
+- tools: list or map of required/optional CLI tools to hint environment needs
+
+Schema (minimal example):
+```yaml
+id: demo_workflow
+description: Example workflow
+params:
+  name: {type: str, required: true, cli: --name}
+  include_time: {type: bool, default: false, cli: --include-time}
+run:
+  entry: "run.sh"
+  args:
+    - "${ctx.params.name}"
+    - "${ctx.params.include_time}"
+  env:
+    REPORT_DIR: "${ctx.project_dir}/reports"
+hooks:
+  pre_run: [hooks.env:main]
+  post_run: [hooks.collect:main]
+tools:
+  required: [python]
+  optional: [quarto]
+```
 
 Param fields:
 - name (map key), type, required, default, cli, exists, description

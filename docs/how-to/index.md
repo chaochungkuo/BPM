@@ -14,5 +14,5 @@ Quick, copy‑paste recipes for common tasks.
 - [Render and Run a Template](./render-and-run-a-template.md)
 - [Publish Template Outputs](./publish-template-outputs.md)
 - [Use Ad‑hoc Mode](./use-ad-hoc-mode.md)
-- [Render and Run a Workflow](./render-and-run-a-workflow.md)
+- [Run a Workflow](./render-and-run-a-workflow.md)
 - [Troubleshoot a Failure](./troubleshoot-a-failure.md)

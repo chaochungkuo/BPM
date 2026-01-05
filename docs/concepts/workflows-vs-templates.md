@@ -16,25 +16,21 @@ Pick the right abstraction for your job: single tool (template) or orchestration
 - CLI: `bpm template render/run/publish <id>`.
 
 ## Workflows
-- Descriptor: `workflows/<id>/workflow.yaml` (similar shape to templates for params/render/run).
-- Capabilities: params, render files, run entry, hooks; no built‑in `publish`.
-- State: render/run do not persist params into `project.yaml` (day‑1 behavior).
-- CLI: `bpm workflow render/run <id>`.
+- Descriptor: `workflows/<id>/workflow_config.yaml` (similar shape to templates for params/run).
+- Capabilities: params, run entry, hooks; no built‑in `publish`.
+- State: can record run history in `project.yaml` when `--project` is provided.
+- CLI: `bpm workflow run <id>`.
 
 ## Defaults and paths
-- Both use the same default `render.into`: `${ctx.project.name}/${ctx.template.id}/`.
-- `bpm workflow run` executes in that folder; entry defaults to `run.sh` if not set.
+- `bpm workflow run` executes in the workflow folder; entry defaults to `run.sh` if not set.
 
 ## Minimal workflow example
 ```
-# workflows/clean/workflow.yaml
+# workflows/clean/workflow_config.yaml
 id: clean
 description: Remove intermediates
 params:
   keep_logs: {type: bool, default: true}
-render:
-  files:
-    - run.sh.j2 -> run.sh
 run:
   entry: run.sh
 ```

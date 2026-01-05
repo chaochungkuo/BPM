@@ -13,7 +13,7 @@ Small Python functions that prepare the environment or collect results.
 - Under `hooks/` in your BRS, importable as modules.
 
 ## Referencing hooks
-- In `template_config.yaml` or `workflow.yaml`:
+- In `template_config.yaml` or `workflow_config.yaml`:
 ```
 hooks:
   pre_render:

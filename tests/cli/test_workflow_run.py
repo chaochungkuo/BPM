@@ -2,6 +2,7 @@ from pathlib import Path
 from typer.testing import CliRunner
 
 from bpm.core import store_registry as reg
+from bpm.core.project_io import load as load_project
 from bpm.cli.main import app as root_app
 
 
@@ -17,30 +18,27 @@ def _mk_brs_with_workflow(tmpdir):
     )
     (src / "config" / "authors.yaml").write_text("authors: []\n")
 
-    (src / "workflows" / "clean" / "workflow.yaml").write_text(
+    (src / "workflows" / "clean" / "workflow_config.yaml").write_text(
         "id: clean\n"
         "description: Demo workflow\n"
         "params:\n"
-        "  name: {type: str, required: true}\n"
-        "render:\n"
-        "  into: \"${ctx.project.name}/${ctx.template.id}/\"\n"
-        "  files:\n"
-        "    - out.txt.j2 -> out.txt\n"
-        "    - run.sh.j2 -> run.sh\n"
+        "  name: {type: str, required: true, cli: --name}\n"
         "run:\n"
         "  entry: \"run.sh\"\n"
+        "  args:\n"
+        "    - \"${ctx.params.name}\"\n"
     )
-    (src / "workflows" / "clean" / "out.txt.j2").write_text(
-        "WF Hello {{ ctx.params.name }}\n"
-    )
-    (src / "workflows" / "clean" / "run.sh.j2").write_text(
+    (src / "workflows" / "clean" / "run.sh").write_text(
         "#!/usr/bin/env bash\n"
-        "echo 'running clean' > ran.txt\n"
+        "set -euo pipefail\n"
+        "name=\"$1\"\n"
+        "out=\"${BPM_PROJECT_DIR}/wf_ran.txt\"\n"
+        "echo \"WF Hello ${name}\" > \"${out}\"\n"
     )
     return src
 
 
-def test_workflow_render_and_run(tmpdir, monkeypatch):
+def test_workflow_run(tmpdir, monkeypatch):
     runner = CliRunner()
     monkeypatch.setenv("BPM_CACHE", str(tmpdir / "cache"))
 
@@ -55,18 +53,17 @@ def test_workflow_render_and_run(tmpdir, monkeypatch):
 
     pdir = tmpdir / proj_name
 
-    # render workflow
-    r2 = runner.invoke(root_app, ["workflow", "render", "clean", "--dir", str(pdir), "--param", "name=Alice"])
-    assert r2.exit_code == 0, r2.output
-
-    out = tmpdir / proj_name / proj_name / "clean" / "out.txt"
-    assert out.exists()
-    assert out.read_text().strip() == "WF Hello Alice"
-
     # run workflow
-    r3 = runner.invoke(root_app, ["workflow", "run", "clean", "--dir", str(pdir)])
+    r3 = runner.invoke(
+        root_app,
+        ["workflow", "run", "clean", "--project", str(pdir / "project.yaml"), "--name", "Alice"],
+    )
     assert r3.exit_code == 0, r3.output
 
-    ran = tmpdir / proj_name / proj_name / "clean" / "ran.txt"
+    ran = tmpdir / proj_name / "wf_ran.txt"
     assert ran.exists()
-    assert "running clean" in ran.read_text()
+    assert ran.read_text().strip() == "WF Hello Alice"
+
+    project = load_project(pdir)
+    wfs = project.get("workflows") or []
+    assert any(w.get("id") == "clean" and w.get("status") == "completed" for w in wfs)

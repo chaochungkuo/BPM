@@ -64,7 +64,7 @@ pixi run fmt    # black
 - `bpm resource …`: manage BRS stores (add/activate/remove/list/info)
 - `bpm project …`: init/info/status for a project directory
 - `bpm template …`: render/run/publish templates from the active BRS
-- `bpm workflow …`: render/run workflows from the active BRS
+- `bpm workflow …`: run workflows from the active BRS
 
 ---
 
@@ -105,9 +105,10 @@ Jinja has access to a rich context via `ctx` (see Context System below).
 
 ### Workflows
 
-Workflows mirror templates but live under `workflows/<id>/` with `workflow.yaml`. They use the
-same rendering rules and `${ctx…}` placeholders, but they don’t touch `project.yaml` (no publish
-or template status tracking). They are useful for one‑off utilities and glue tasks.
+Workflows live under `workflows/<id>/` with `workflow_config.yaml`. They execute entry scripts
+from the workflow folder and can use `${ctx…}` placeholders in args/env. When a project is
+provided, BPM can record workflow run history in `project.yaml`. They are useful for
+one‑off utilities and glue tasks.
 
 ---
 
@@ -286,14 +287,11 @@ bpm template render hello --out /tmp/adhoc_out --param name=Alice
 
 ### Workflow
 
-Workflows mirror templates but do not touch `project.yaml`.
+Workflows execute entry scripts from the BRS and optionally record run history in `project.yaml`.
 
 ```bash
-# render a workflow into the project
-bpm workflow render clean --dir /tmp/250901_Demo_UKA --param name=Alice
-
-# run the workflow entry script
-bpm workflow run clean --dir /tmp/250901_Demo_UKA
+# run a workflow (optional project context)
+bpm workflow run clean --project /tmp/250901_Demo_UKA/project.yaml --name Alice
 ```
 
 See example skeleton under `tests/data/brs_min` and `tests/cli/test_workflow_run.py`.

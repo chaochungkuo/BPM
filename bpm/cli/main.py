@@ -28,7 +28,7 @@ app = typer.Typer(
 app.add_typer(project_cli.app, name="project", help="Create and inspect BPM projects.")
 app.add_typer(template_cli.app, name="template", help="Render/run/publish templates from the active BRS.")
 app.add_typer(resource_cli.app, name="resource", help="Manage BRS resource stores (add/activate/list/info/remove).")
-app.add_typer(workflow_cli.app, name="workflow", help="Render and run workflows from the active BRS.")
+app.add_typer(workflow_cli.app, name="workflow", help="Run workflows from the active BRS.")
 
 
 @app.callback(invoke_without_command=True)

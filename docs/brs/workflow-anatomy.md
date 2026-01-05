@@ -11,15 +11,11 @@ Workflows wrap multiple steps or tools without forcing a specific engine.
 
 ## Descriptor example
 ```
-# workflows/clean/workflow.yaml
+# workflows/clean/workflow_config.yaml
 id: clean
 description: Remove intermediates
 params:
   keep_logs: {type: bool, default: true}
-render:
-  into: "${ctx.project.name}/${ctx.template.id}/"
-  files:
-    - run.sh.j2 -> run.sh
 run:
   entry: run.sh
 hooks:
@@ -28,5 +24,6 @@ hooks:
 ```
 
 ## Behavior
-- Render and run mirror templates: files are generated, then `run.entry` executes in that folder.
+- Workflows execute entry scripts from their own folder (no render step).
+- `pre_run`/`post_run` hooks run around the entry if defined.
 - No built‑in `publish:` block; use templates to expose publishable outputs.

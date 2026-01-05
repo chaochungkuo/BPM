@@ -1,19 +1,17 @@
 ---
-title: Render and Run a Workflow
+title: Run a Workflow
 parent: How-To
 nav_order: 6
 has_toc: true
 ---
 
-# Render and Run a Workflow
+# Run a Workflow
 
 ```
-bpm workflow render <id> [--dir <project_dir>] [--dry] [--param KEY=VALUE]
-bpm workflow run <id> [--dir <project_dir>]
+bpm workflow run <id> [--project /path/to/project.yaml] [--<param-flag> <value>]
 ```
 
 Notes
-- Renders into `${ctx.project.name}/${ctx.template.id}/` under the project.
-- `run` executes the `run.entry` (default `run.sh`) in that folder.
-- Workflows do not update `project.yaml` (no stored params/publish by default).
-
+- `run` executes the workflow entry script from its workflow folder.
+- If `--project` is provided, BPM loads that `project.yaml` and makes it available via `ctx`.
+- Workflow runs can be recorded in `project.yaml` under a `workflows` list.
