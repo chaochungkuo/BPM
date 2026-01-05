@@ -1,0 +1,8 @@
+id: clean
+description: Example workflow
+params:
+  name: {type: str, required: true}
+run:
+  entry: "run.sh"
+  args:
+    - "${ctx.params.name}"
