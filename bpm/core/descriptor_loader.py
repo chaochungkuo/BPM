@@ -82,6 +82,13 @@ def load(template_id: str) -> Descriptor:
         ValueError: If the descriptor is missing/invalid (e.g., id mismatch).
     """
     p = brs_loader.template_descriptor_path(template_id)
+    if not p.exists():
+        tdir = brs_loader.get_paths().templates_dir / template_id
+        preferred = tdir / "template_config.yaml"
+        raise FileNotFoundError(
+            f"Template '{template_id}' not found in active BRS. "
+            f"Expected descriptor at {preferred}."
+        )
     data = safe_load_yaml(p)
 
     # Validate id
