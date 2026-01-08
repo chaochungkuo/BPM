@@ -40,7 +40,10 @@ def load_descriptor(workflow_id: str) -> WorkflowDescriptor:
     wf_dir = paths.workflows_dir / workflow_id
     p = wf_dir / "workflow_config.yaml"
     if not p.exists():
-        p = wf_dir / "workflow.yaml"
+        raise FileNotFoundError(
+            f"Workflow '{workflow_id}' not found in active BRS. "
+            f"Expected descriptor at {p}."
+        )
     data = safe_load_yaml(p)
 
     if data.get("id") != workflow_id:
