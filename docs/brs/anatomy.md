@@ -19,7 +19,7 @@ UKA_GF_BRS/
     settings.yaml  (optional)
   templates/
     hello/
-      template_config.yaml   # or legacy: template.config.yaml
+      template_config.yaml
       run.sh.j2
       README.md              (optional)
   workflows/
@@ -33,7 +33,7 @@ UKA_GF_BRS/
 ```
 
 ## Discovery rules
-- Templates: `templates/<id>/template_config.yaml` (preferred) or `template.config.yaml` (legacy).
+- Templates: `templates/<id>/template_config.yaml`.
   - `render.parent_directory` (optional): inserts a folder above the template folder in project mode.
 - Workflows: `workflows/<id>/workflow_config.yaml`.
 - Hooks: importable Python modules under `hooks/`.

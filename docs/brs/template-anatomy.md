@@ -45,5 +45,3 @@ hooks:
 set -euo pipefail
 echo "Sample: {{ ctx.params.sample_id }}" > run.out
 ```
-
-Legacy note: `template.config.yaml` is still supported, but prefer `template_config.yaml`.
