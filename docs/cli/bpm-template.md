@@ -43,6 +43,12 @@ bpm template info <id> [--format table|plain|json]
 ```
 - Shows detailed info for a template: params (type/required/default/cli), render target and files, hooks, dependencies, tools, and publish resolvers.
 
+## readme
+```
+bpm template readme <id>
+```
+- Prints the template README.md from the active BRS (if present).
+
 Tips
 - Use `--param` to override descriptor defaults; types are coerced (`int`, `float`, `bool`, `str`).
 - Missing required params cause render to fail early with a clear error.

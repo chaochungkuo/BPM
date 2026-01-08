@@ -371,6 +371,29 @@ def info_cmd(
             typer.echo(f"    - {t}")
 
 
+@app.command("readme")
+def readme_cmd(
+    template_id: str = typer.Argument(..., help="Template id within the active BRS", autocompletion=_complete_template_ids),
+):
+    """
+    Show the README.md for a template (if present).
+    """
+    try:
+        tpl_dir = brs_loader.get_paths().templates_dir / template_id
+        readme_path = tpl_dir / "README.md"
+        if not readme_path.exists():
+            typer.secho(
+                f"README.md not found for template '{template_id}'.",
+                err=True,
+                fg=typer.colors.YELLOW,
+            )
+            raise typer.Exit(code=1)
+        typer.echo(readme_path.read_text())
+    except Exception as e:
+        typer.secho(f"Error: {e}", err=True, fg=typer.colors.RED)
+        raise typer.Exit(code=1)
+
+
 @app.command("run")
 def run(
     template_id: str = typer.Argument(..., help="Template id within the active BRS", autocompletion=_complete_template_ids),
