@@ -375,7 +375,8 @@ def run(project_dir: Path, template_id: str, *, adhoc_out: Optional[Path] = None
         if desc.hooks and desc.hooks.get("post_run"):
             run_hooks(desc.hooks["post_run"], ctx)
 
-        # Update status
+        # Reload project.yaml to pick up any changes made by the run script (e.g., publish data)
+        project = load_project(project_dir)
         entry_dict = _ensure_template_entry(project, template_id)
         entry_dict["status"] = "completed"
         save_project(project_dir, project)

@@ -146,7 +146,7 @@ def load(template_id: str) -> Descriptor:
         run_entry = data["run"].get("entry")
 
     # Dependencies can appear as 'required_templates' or legacy 'requires'
-    req = data.get("required_templates") or data.get("requires") or []
+    req_templates = data.get("required_templates") or data.get("requires") or []
 
     # Tools section (optional):
     # Accept either a simple list (treated as required) or a mapping with
@@ -157,10 +157,10 @@ def load(template_id: str) -> Descriptor:
     if isinstance(tools_sec, list):
         tools_required = [str(x) for x in tools_sec]
     elif isinstance(tools_sec, dict):
-        req = tools_sec.get("required") or []
+        tool_req = tools_sec.get("required") or []
         opt = tools_sec.get("optional") or []
-        if isinstance(req, list):
-            tools_required = [str(x) for x in req]
+        if isinstance(tool_req, list):
+            tools_required = [str(x) for x in tool_req]
         if isinstance(opt, list):
             tools_optional = [str(x) for x in opt]
 
@@ -171,7 +171,7 @@ def load(template_id: str) -> Descriptor:
         render_into=into,
         render_files=render_files,
         run_entry=run_entry,
-        required_templates=list(req),
+        required_templates=list(req_templates),
         publish=data.get("publish") or {},
         hooks=data.get("hooks") or {},
         tools_required=tools_required,
