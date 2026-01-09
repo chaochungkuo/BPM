@@ -8,7 +8,7 @@ has_toc: true
 # File Formats
 
 ## project.yaml
-- name, project_path (host-aware), templates[] (id, status, params, published)
+- name, project_path (host-aware), templates[] (id, source_template, status, params, published)
 - workflows[] (id, status, params, started_at, finished_at, run_entry, args, error)
 
 ## stores.yaml
@@ -46,6 +46,10 @@ tools:
 
 Param fields:
 - name (map key), type, required, default, cli, exists, description
+
+Template instance fields:
+- id: instance/alias stored in project.yaml (render folder name).
+- source_template: canonical template id from the BRS (defaults to id when not aliased).
 
 Examples:
 - Simple list (treated as required):

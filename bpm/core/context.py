@@ -26,9 +26,11 @@ class CtxTemplate:
 
     Attributes:
         id: Template id (e.g., "hello").
+        source_id: Original descriptor id (helps when using aliases/instances).
         published: Already published values for this template (usually filled after run).
     """
     id: str
+    source_id: str | None = None
     published: Dict[str, Any] = field(default_factory=dict)
 
 
@@ -98,6 +100,8 @@ def build(
     params: Dict[str, Any],
     brs_config: Dict[str, Any],
     cwd: Path,
+    *,
+    source_id: str | None = None,
 ) -> Ctx:
     """
     Construct a Ctx from raw dict-like inputs (what higher layers load).
@@ -115,5 +119,5 @@ def build(
     prj = None
     if project:
         prj = CtxProject(name=project["name"], project_path=project["project_path"])
-    tpl = CtxTemplate(id=tpl_id, published={})
+    tpl = CtxTemplate(id=tpl_id, source_id=source_id, published={})
     return Ctx(project=prj, template=tpl, params=params, brs=brs_config, cwd=cwd)

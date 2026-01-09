@@ -22,7 +22,7 @@ from bpm.models.hostpath import HostPath
 
 # ----------------------------- helpers -----------------------------
 
-def _ensure_template_entry(project: Dict[str, Any], tpl_id: str) -> Dict[str, Any]:
+def _ensure_template_entry(project: Dict[str, Any], tpl_id: str, *, source_id: str | None = None) -> Dict[str, Any]:
     """
     Find an existing template entry or create a new one with status 'active'.
 
@@ -33,7 +33,7 @@ def _ensure_template_entry(project: Dict[str, Any], tpl_id: str) -> Dict[str, An
     for t in tlist:
         if t.get("id") == tpl_id:
             return t
-    entry = {"id": tpl_id, "status": "active", "params": {}, "published": {}}
+    entry = {"id": tpl_id, "source_template": source_id or tpl_id, "status": "active", "params": {}, "published": {}}
     tlist.append(entry)
     return entry
 
@@ -45,7 +45,7 @@ def _check_dependencies(desc: Descriptor, project: Dict[str, Any]) -> List[str]:
     A dependency is considered satisfied if it exists in project.templates
     (status may be 'active' or 'completed').
     """
-    have = {t.get("id") for t in (project.get("templates") or [])}
+    have = {t.get("source_template") or t.get("id") for t in (project.get("templates") or [])}
     missing = [dep for dep in (desc.required_templates or []) if dep not in have]
     return missing
 
@@ -157,6 +157,7 @@ def render(
     project_dir: Path,
     template_id: str,
     *,
+    alias: str | None = None,
     params_kv: List[str] | None = None,
     dry: bool = False,
     adhoc_out: Optional[Path] = None,
@@ -187,6 +188,7 @@ def render(
     # 1) load BRS + descriptor
     brs_cfg = brs_loader.load_config()
     desc = load_desc(template_id)
+    instance_id = alias.strip() if alias else template_id
 
     # 2) load project; deps (skip deps in ad-hoc mode)
     project = None if adhoc_out else load_project(project_dir)
@@ -201,14 +203,14 @@ def render(
     if project:
         ctx_like = {
             "project": SimpleNamespace(name=project["name"]),
-            "template": SimpleNamespace(id=template_id),
+            "template": SimpleNamespace(id=instance_id),
             "params": {},
         }
     else:
         # Ad-hoc: project is None; allow ctx interpolation for template id only
         ctx_like = {
             "project": SimpleNamespace(name=""),
-            "template": SimpleNamespace(id=template_id),
+            "template": SimpleNamespace(id=instance_id),
             "params": {},
         }
     final_params = resolve_params(desc, cli_params, project, ctx_like)
@@ -247,13 +249,13 @@ def render(
         target_cwd.mkdir(parents=True, exist_ok=True)
         # Override render_into to "." so files render directly under adhoc_out
         desc_eff = replace(desc, render_into=".", parent_directory=None)
-        ctx = build_ctx(None, template_id, final_params, {"repo": brs_cfg.repo, "authors": brs_cfg.authors, "hosts": brs_cfg.hosts, "settings": brs_cfg.settings}, target_cwd)
+        ctx = build_ctx(None, instance_id, final_params, {"repo": brs_cfg.repo, "authors": brs_cfg.authors, "hosts": brs_cfg.hosts, "settings": brs_cfg.settings}, target_cwd, source_id=template_id)
         # Hooks: pre_render (run in both project and ad-hoc modes)
         if desc.hooks and desc.hooks.get("pre_render"):
             run_hooks(desc.hooks["pre_render"], ctx)
         plan = jinja_render(desc_eff, ctx, dry=dry)
     else:
-        ctx = build_ctx(project, template_id, final_params, {"repo": brs_cfg.repo, "authors": brs_cfg.authors, "hosts": brs_cfg.hosts, "settings": brs_cfg.settings}, project_dir)
+        ctx = build_ctx(project, instance_id, final_params, {"repo": brs_cfg.repo, "authors": brs_cfg.authors, "hosts": brs_cfg.hosts, "settings": brs_cfg.settings}, project_dir, source_id=template_id)
         # Hooks: pre_render (project mode)
         if desc.hooks and desc.hooks.get("pre_render"):
             run_hooks(desc.hooks["pre_render"], ctx)
@@ -283,11 +285,10 @@ def render(
         }
         safe_dump_yaml(Path(adhoc_out) / "bpm.meta.yaml", meta)
     else:
-        entry = _ensure_template_entry(project, template_id)
+        entry = _ensure_template_entry(project, instance_id, source_id=template_id)
         entry["params"] = stored_params
         entry["status"] = "active"
-        # track store meta if you want (optional)
-        # entry["store_id"] = brs_cfg.repo.get("id")
+        entry["source_template"] = template_id
         project["status"] = "active"
         save_project(project_dir, project)
 
@@ -321,15 +322,15 @@ def run(project_dir: Path, template_id: str, *, adhoc_out: Optional[Path] = None
       5) On success, set template status='completed' and save project.yaml.
     """
     brs_cfg = brs_loader.load_config()
-    desc = load_desc(template_id)
-
+    # For ad-hoc mode, template_id is the descriptor id
     if adhoc_out:
+        desc = load_desc(template_id)
         # Ad-hoc mode: read params from bpm.meta.yaml, run hooks + entry, persist status
         out_dir = Path(adhoc_out).resolve()
         meta = _load_meta(out_dir)
         params_raw = meta.get("params") or {}
         params = _materialize_params(params_raw, desc, brs_cfg.hosts, out_dir)
-        ctx = build_ctx(None, template_id, params, {"repo": brs_cfg.repo, "authors": brs_cfg.authors, "hosts": brs_cfg.hosts, "settings": brs_cfg.settings}, out_dir)
+        ctx = build_ctx(None, template_id, params, {"repo": brs_cfg.repo, "authors": brs_cfg.authors, "hosts": brs_cfg.hosts, "settings": brs_cfg.settings}, out_dir, source_id=template_id)
 
         # Hooks: pre_run (enabled in ad-hoc)
         if desc.hooks and desc.hooks.get("pre_run"):
@@ -348,15 +349,15 @@ def run(project_dir: Path, template_id: str, *, adhoc_out: Optional[Path] = None
     else:
         # Project mode
         project = load_project(project_dir)
+        entry = next((t for t in (project.get("templates") or []) if t.get("id") == template_id), None)
+        if entry is None:
+            raise ValueError(f"Template '{template_id}' not found in project.yaml")
+        source_id = entry.get("source_template") or template_id
+        desc = load_desc(source_id)
 
-        # Build ctx with the stored params from project.yaml (if any)
-        params = {}
-        for t in project.get("templates") or []:
-            if t.get("id") == template_id:
-                params = t.get("params") or {}
-                break
+        params = entry.get("params") or {}
         params_local = _materialize_params(params, desc, brs_cfg.hosts, project_dir)
-        ctx = build_ctx(project, template_id, params_local, {"repo": brs_cfg.repo, "authors": brs_cfg.authors, "hosts": brs_cfg.hosts, "settings": brs_cfg.settings}, project_dir)
+        ctx = build_ctx(project, template_id, params_local, {"repo": brs_cfg.repo, "authors": brs_cfg.authors, "hosts": brs_cfg.hosts, "settings": brs_cfg.settings}, project_dir, source_id=source_id)
 
         # Hooks: pre_run
         if desc.hooks and desc.hooks.get("pre_run"):
@@ -390,14 +391,14 @@ def publish(project_dir: Path, template_id: str, *, adhoc_out: Optional[Path] = 
         The resulting 'published' dict for this template.
     """
     brs_cfg = brs_loader.load_config()
-    desc = load_desc(template_id)
 
     if adhoc_out:
+        desc = load_desc(template_id)
         out_dir = Path(adhoc_out).resolve()
         meta = _load_meta(out_dir)
         params_raw = meta.get("params") or {}
         params = _materialize_params(params_raw, desc, brs_cfg.hosts, out_dir)
-        ctx = build_ctx(None, template_id, params, {"repo": brs_cfg.repo, "authors": brs_cfg.authors, "hosts": brs_cfg.hosts, "settings": brs_cfg.settings}, out_dir)
+        ctx = build_ctx(None, template_id, params, {"repo": brs_cfg.repo, "authors": brs_cfg.authors, "hosts": brs_cfg.hosts, "settings": brs_cfg.settings}, out_dir, source_id=template_id)
         pub = resolve_publish(desc.publish, ctx, {})
         # Persist published to meta
         meta["published"] = pub
@@ -405,15 +406,16 @@ def publish(project_dir: Path, template_id: str, *, adhoc_out: Optional[Path] = 
         return pub
     else:
         project = load_project(project_dir)
+        entry = next((t for t in (project.get("templates") or []) if t.get("id") == template_id), None)
+        if entry is None:
+            raise ValueError(f"Template '{template_id}' not found in project.yaml")
+        source_id = entry.get("source_template") or template_id
+        desc = load_desc(source_id)
         # Build ctx with stored params
-        params = {}
-        for t in project.get("templates") or []:
-            if t.get("id") == template_id:
-                params = t.get("params") or {}
-                break
+        params = entry.get("params") or {}
 
         params_local = _materialize_params(params, desc, brs_cfg.hosts, project_dir)
-        ctx = build_ctx(project, template_id, params_local, {"repo": brs_cfg.repo, "authors": brs_cfg.authors, "hosts": brs_cfg.hosts, "settings": brs_cfg.settings}, project_dir)
+        ctx = build_ctx(project, template_id, params_local, {"repo": brs_cfg.repo, "authors": brs_cfg.authors, "hosts": brs_cfg.hosts, "settings": brs_cfg.settings}, project_dir, source_id=source_id)
 
         pub = resolve_publish(desc.publish, ctx, project)
         save_project(project_dir, project)

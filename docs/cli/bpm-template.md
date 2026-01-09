@@ -11,9 +11,10 @@ Render, run, and publish templates from the active BRS.
 
 ## render
 ```
-bpm template render <id> [--dir <project_dir>] [--dry] [--param KEY=VALUE ...] [--out <adhoc_dir>]
+bpm template render <id> [--alias <name>] [--dir <project_dir>] [--dry] [--param KEY=VALUE ...] [--out <adhoc_dir>]
 ```
 - Project mode: renders into `${ctx.project.name}/${ctx.template.id}/` under `--dir` (default `.`), updates `project.yaml`.
+  - With `--alias`, the rendered folder and project entry use the alias as `id`, and record `source_template=<id>` so you can have multiple instances of the same template in one project.
 - Ad‑hoc mode: with `--out`, renders into that directory (treats `render.into` as `.`) and writes `bpm.meta.yaml`; skips hooks and project updates.
 - `--dry` prints the plan only; no file changes.
 - Tip: discover template parameters with `bpm template info <id>`.

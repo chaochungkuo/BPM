@@ -38,6 +38,7 @@ def render(
     ctx: typer.Context,
     template_id: str = typer.Argument(..., help="Template id within the active BRS", autocompletion=_complete_template_ids),
     project_dir: Path = typer.Option(Path("."), "--dir", help="Project directory (contains project.yaml)"),
+    alias: str = typer.Option(None, "--alias", help="Instance name to render under (stored as template id in project.yaml)"),
     dry: bool = typer.Option(False, "--dry", help="Dry-run: only show plan, no changes"),
     param: list[str] = typer.Option(None, "--param", help="KEY=VALUE (can repeat)"),
     out: Path = typer.Option(None, "--out", help="Ad-hoc output directory (do not touch project.yaml)"),
@@ -164,6 +165,7 @@ def render(
         plan = svc.render(
             project_dir.resolve(),
             template_id,
+            alias=alias,
             params_kv=merged_params,
             dry=dry,
             adhoc_out=out.resolve() if out else None,
