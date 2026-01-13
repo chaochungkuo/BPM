@@ -41,6 +41,7 @@ def render(
     alias: str = typer.Option(None, "--alias", help="Instance name to render under (stored as template id in project.yaml)"),
     dry: bool = typer.Option(False, "--dry", help="Dry-run: only show plan, no changes"),
     param: list[str] = typer.Option(None, "--param", help="KEY=VALUE (can repeat)"),
+    adhoc: bool = typer.Option(False, "--adhoc", help="Force ad-hoc mode even without --out (requires resolver)"),
     out: Path = typer.Option(None, "--out", help="Ad-hoc output directory (do not touch project.yaml)"),
     allow_outside_cwd: bool = typer.Option(False, "--allow-outside-cwd/--no-allow-outside-cwd", help="Bypass cwd==--dir safety check (advanced)"),
 ):
@@ -52,7 +53,9 @@ def render(
     - Ad‑hoc (with --out): skips hooks and project.yaml updates; writes bpm.meta.yaml
     """
     # Safety: in project mode, encourage running from the project directory to avoid confusion
-    if not out:
+    adhoc_mode = bool(out or adhoc)
+
+    if not adhoc_mode:
         if project_dir.resolve() != Path(".").resolve():
             if not allow_outside_cwd:
                 # Backward-compatible: warn but continue to support --dir workflows and tests
@@ -169,13 +172,14 @@ def render(
             params_kv=merged_params,
             dry=dry,
             adhoc_out=out.resolve() if out else None,
+            adhoc=adhoc,
         )
     except Exception as e:
         # Provide a helpful hint for ad-hoc rendering when project.yaml is missing
         msg = str(e)
-        if (isinstance(e, FileNotFoundError) or "project.yaml not found" in msg) and not out:
+        if (isinstance(e, FileNotFoundError) or "project.yaml not found" in msg) and not out and not adhoc:
             typer.secho(
-                "Hint: To render without a project, pass --out /path to render in ad-hoc mode.",
+                "Hint: To render without a project, pass --out /path or use --adhoc with a template resolver for the output directory.",
                 err=True,
                 fg=typer.colors.YELLOW,
             )
@@ -186,7 +190,7 @@ def render(
         for action, src, dst in plan:
             typer.echo(f"{action:6}  {src or '-':40} -> {dst}")
     else:
-        if out:
+        if adhoc_mode:
             typer.secho("[ok] Rendered (ad-hoc).", fg=typer.colors.GREEN)
         else:
             typer.secho("[ok] Rendered.", fg=typer.colors.GREEN)

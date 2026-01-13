@@ -9,7 +9,7 @@ nav_order: 15
 You can render/run/publish a template in ad‑hoc mode (no project) and later adopt the results into a project.
 
 ## Ad‑hoc lifecycle
-- Render: `bpm template render --out /adhoc demux_bclconvert`
+- Render: `bpm template render --out /adhoc demux_bclconvert` (or `--adhoc` if the template provides `render.adhoc_out_resolver`)
 - Run:    `cd /adhoc && bpm template run demux_bclconvert`
 - Publish:`cd /adhoc && bpm template publish demux_bclconvert`
 
@@ -49,4 +49,3 @@ This creates the project and immediately adopts the ad‑hoc run.
 - Adoption preserves `params`, `published`, and `status`.
 - The template entry also records the ad‑hoc `source` (BRS id/version, template id).
 - If needed, you can re‑run `bpm template publish` in project mode to recompute publish values.
-

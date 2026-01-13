@@ -60,6 +60,8 @@ class Descriptor:
     tools_optional: List[str] = field(default_factory=list)
     # Optional extra folder between project and template id in project mode
     parent_directory: str | None = None
+    # Optional resolver for deriving ad-hoc output directory
+    adhoc_out_resolver: Dict[str, Any] | None = None
 
 
 def load(template_id: str) -> Descriptor:
@@ -134,6 +136,22 @@ def load(template_id: str) -> Descriptor:
     if parent_directory is None:
         parent_directory = data.get("parent_directory")
 
+    # Optional ad-hoc out resolver: allow string or {resolver, args}
+    adhoc_out_resolver = None
+    if "adhoc_out_resolver" in render:
+        resolver_spec = render.get("adhoc_out_resolver")
+        if isinstance(resolver_spec, str):
+            adhoc_out_resolver = {"resolver": resolver_spec, "args": {}}
+        elif isinstance(resolver_spec, dict):
+            if "resolver" not in resolver_spec:
+                raise ValueError("render.adhoc_out_resolver requires a 'resolver' key")
+            adhoc_out_resolver = {
+                "resolver": resolver_spec.get("resolver"),
+                "args": resolver_spec.get("args") or {},
+            }
+        elif resolver_spec is not None:
+            raise ValueError("render.adhoc_out_resolver must be a string or mapping")
+
     files_spec = render.get("files") or []
     render_files: List[tuple[str, str]] = []
     for item in files_spec:
@@ -184,4 +202,5 @@ def load(template_id: str) -> Descriptor:
         tools_required=tools_required,
         tools_optional=tools_optional,
         parent_directory=parent_directory,
+        adhoc_out_resolver=adhoc_out_resolver,
     )

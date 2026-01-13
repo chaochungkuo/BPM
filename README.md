@@ -283,6 +283,8 @@ bpm template publish hello --dir /tmp/250901_Demo_UKA
 
 # ad‑hoc render (no project.yaml changes); writes bpm.meta.yaml in output
 bpm template render hello --out /tmp/adhoc_out --param name=Alice
+# or derive the ad-hoc output via a template resolver with --adhoc
+bpm template render demux_bclconvert --adhoc --param bcl_dir=/data/runs/FC001
 ```
 
 ### Workflow

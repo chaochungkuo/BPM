@@ -14,6 +14,7 @@ from bpm.core.jinja_renderer import render as jinja_render
 from bpm.core.param_resolver import resolve as resolve_params
 from bpm.core.project_io import load as load_project, save as save_project
 from bpm.core.publish_resolver import resolve_all as resolve_publish
+from bpm.core.out_resolver import resolve as resolve_out_dir
 
 from bpm.io.exec import run_process
 from bpm.io.yamlio import safe_dump_yaml, safe_load_yaml
@@ -161,6 +162,7 @@ def render(
     params_kv: List[str] | None = None,
     dry: bool = False,
     adhoc_out: Optional[Path] = None,
+    adhoc: bool = False,
 ) -> List[Tuple[str, str | None, str]]:
     """
     Render a template into the project.
@@ -178,6 +180,7 @@ def render(
         template_id: Template folder/id within active BRS.
         params_kv: List of "KEY=VALUE" CLI parameters (generic).
         dry: If True, do not write files; just return the plan (list of PlanItems).
+        adhoc: Force ad-hoc mode even without an explicit --out (requires resolver).
 
     Returns:
         The rendering plan (list of PlanItems) for inspection/testing (each is (action, src, dst)).
@@ -189,10 +192,11 @@ def render(
     brs_cfg = brs_loader.load_config()
     desc = load_desc(template_id)
     instance_id = alias.strip() if alias else template_id
+    adhoc_mode = bool(adhoc_out or adhoc)
 
     # 2) load project; deps (skip deps in ad-hoc mode)
-    project = None if adhoc_out else load_project(project_dir)
-    if not adhoc_out:
+    project = None if adhoc_mode else load_project(project_dir)
+    if not adhoc_mode:
         missing = _check_dependencies(desc, project)
         if missing:
             raise ValueError(f"Missing required templates: {', '.join(missing)}")
@@ -229,7 +233,7 @@ def render(
         if raw.is_absolute():
             p = raw.resolve()
         else:
-            base = Path.cwd() if adhoc_out else project_dir
+            base = Path.cwd() if adhoc_mode else project_dir
             p = (base / raw).resolve()
         if kind == "file" and not p.is_file():
             missing_paths.append(f"{pname} -> {p}")
@@ -242,10 +246,27 @@ def render(
             "Input path(s) not found or wrong type: " + ", ".join(missing_paths)
         )
 
-    # 4) build ctx and run pre_render hooks (if any), then render
+    # 4) determine ad-hoc output (resolver) and build ctx; run pre_render hooks, then render
+    resolved_adhoc_out = Path(adhoc_out).resolve() if adhoc_out else None
+    if adhoc_mode and resolved_adhoc_out is None:
+        if desc.adhoc_out_resolver:
+            tmp_ctx = build_ctx(
+                None,
+                instance_id,
+                final_params,
+                {"repo": brs_cfg.repo, "authors": brs_cfg.authors, "hosts": brs_cfg.hosts, "settings": brs_cfg.settings},
+                Path.cwd(),
+                source_id=template_id,
+            )
+            resolved_adhoc_out = resolve_out_dir(desc.adhoc_out_resolver, tmp_ctx, Path.cwd())
+        else:
+            raise ValueError("Ad-hoc mode requires --out or render.adhoc_out_resolver")
+
     # In ad-hoc mode, render into the provided out directory directly, ignoring desc.render_into
-    if adhoc_out:
-        target_cwd = Path(adhoc_out).resolve()
+    if adhoc_mode:
+        target_cwd = resolved_adhoc_out
+        if target_cwd is None:
+            raise ValueError("Ad-hoc output directory could not be resolved; pass --out.")
         target_cwd.mkdir(parents=True, exist_ok=True)
         # Override render_into to "." so files render directly under adhoc_out
         desc_eff = replace(desc, render_into=".", parent_directory=None)
@@ -268,12 +289,12 @@ def render(
     if desc.hooks and desc.hooks.get("post_render"):
         run_hooks(desc.hooks["post_render"], ctx)
 
-    base_for_paths = Path.cwd() if adhoc_out else project_dir
+    base_for_paths = resolved_adhoc_out if adhoc_mode else project_dir
     host_key = _determine_host_key(project, brs_cfg.hosts, brs_cfg.settings)
     stored_params = _hostify_params(final_params, desc, host_key, base_for_paths)
 
     # 6) persist project state or write ad-hoc meta
-    if adhoc_out:
+    if adhoc_mode:
         # Write bpm.meta.yaml in the output folder with params + source info
         meta = {
             "source": {
@@ -283,7 +304,7 @@ def render(
             },
             "params": stored_params,
         }
-        safe_dump_yaml(Path(adhoc_out) / "bpm.meta.yaml", meta)
+        safe_dump_yaml(Path(resolved_adhoc_out) / "bpm.meta.yaml", meta)
     else:
         entry = _ensure_template_entry(project, instance_id, source_id=template_id)
         entry["params"] = stored_params
