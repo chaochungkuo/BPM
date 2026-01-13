@@ -202,6 +202,7 @@ Pick one of pip, pixi, or conda.
 - Pixi (development and testing):
   ```bash
   pixi install        # creates an environment with runtime deps
+  pixi run python -m pip install bpm-cli
   pixi run test       # run tests
   pixi run lint       # ruff
   pixi run fmt        # black

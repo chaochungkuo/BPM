@@ -26,6 +26,7 @@ BPM supports multiple setup paths. Choose one that fits your workflow.
 
 ```bash
 pixi install           # create env with runtime deps
+pixi run python -m pip install bpm-cli
 pixi run test          # run tests
 pixi run lint          # ruff
 pixi run fmt           # black

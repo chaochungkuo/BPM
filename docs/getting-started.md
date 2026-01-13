@@ -10,9 +10,11 @@ This guide walks through installing BPM, creating a project, adding a BRS, and r
 
 ## Install
 
-See Installation for pip, Pixi, or Conda instructions. For a quick start from source:
+See Installation for pip, Pixi, or Conda instructions. For a quick start:
 
 ```
+python -m pip install bpm-cli
+# or, from source:
 python -m pip install -e .
 ```
 
