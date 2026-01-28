@@ -167,7 +167,13 @@ def run(workflow_id: str, *, project_path: Optional[Path] = None, params_kv: Lis
     entry_path = (wf_dir / entry).resolve()
     if not entry_path.exists():
         raise FileNotFoundError(f"Workflow entry not found: {entry_path}")
-    entry_path.chmod(entry_path.stat().st_mode | 0o111)
+    if not os.access(entry_path, os.X_OK):
+        try:
+            entry_path.chmod(entry_path.stat().st_mode | 0o111)
+        except PermissionError as exc:
+            raise PermissionError(
+                f"Cannot chmod workflow entry (not owner): {entry_path}"
+            ) from exc
 
     def _normalize_bool_str(val: str) -> str:
         if val == "True":

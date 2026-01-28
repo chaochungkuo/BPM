@@ -408,7 +408,7 @@ def run(
     allow_outside_cwd: bool = typer.Option(False, "--allow-outside-cwd/--no-allow-outside-cwd", help="Bypass cwd==--dir safety check (advanced)"),
 ):
     """
-    Execute the template's run entry (e.g., run.sh) with pre/post hooks.
+    Execute the template's run entry (e.g., run.sh) with pre/post hooks, then publish.
     """
     # Decide mode: project vs ad-hoc
     adhoc_dir: Path | None = None
@@ -431,10 +431,13 @@ def run(
 
     try:
         svc.run(project_dir.resolve(), template_id, adhoc_out=adhoc_dir)
+        pub = svc.publish(project_dir.resolve(), template_id, adhoc_out=adhoc_dir)
     except Exception as e:
         typer.secho(f"Error: {e}", err=True, fg=typer.colors.RED)
         raise typer.Exit(code=1)
     typer.secho("[ok] Run completed.", fg=typer.colors.GREEN)
+    if pub:
+        typer.echo(str(pub))
 
 
 @app.command("publish")
