@@ -1,20 +1,13 @@
-[project]
-name = "bpm-cli"
-version = "0.1.5"
-description = "Bioinformatics Project Manager (BPM) — core CLI"
-channels = ["conda-forge"]
+[workspace]
+channels = ["https://prefix.dev/conda-forge"]
 platforms = ["linux-64", "osx-64", "osx-arm64"]
+preview = ["pixi-build"]
+
+[dependencies]
+bpm-cli = { path = "." }
 
 [environments]
 default = { features = ["dev"] }
-
-[dependencies]
-python = ">=3.10,<3.13"
-pyyaml = ">=6.0.2,<7"
-typer = ">=0.12"
-jinja2 = ">=3.1"
-rich = ">=13.7"
-requests = ">=2.32.5,<3"
 
 [feature.dev.dependencies]
 pytest = ">=8"
@@ -31,3 +24,25 @@ test = 'python -m pip install -e ".[dev]" && pytest'
 lint = "ruff check ."
 fmt = "black ."
 fmt-check = "black --check ."
+
+[package]
+name = "bpm-cli"
+version = "0.1.5"
+description = "Bioinformatics Project Manager (BPM) — core CLI"
+
+[package.build]
+backend = { name = "pixi-build-python", version = "*" }
+channels = ["https://prefix.dev/conda-forge"]
+
+[package.host-dependencies]
+python = ">=3.10,<3.13"
+setuptools = ">=68"
+wheel = ">=0.41"
+
+[package.run-dependencies]
+python = ">=3.10,<3.13"
+pyyaml = ">=6.0.2,<7"
+typer = ">=0.12"
+jinja2 = ">=3.1"
+rich = ">=13.7"
+requests = ">=2.32.5,<3"
