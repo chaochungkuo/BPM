@@ -27,7 +27,7 @@ fmt-check = "black --check ."
 
 [package]
 name = "bpm-cli"
-version = "0.1.5"
+version = "0.1.6"
 description = "Bioinformatics Project Manager (BPM) — core CLI"
 
 [package.build]
