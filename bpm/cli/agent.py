@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import json
 import typer
 
 from bpm.core import agent_config
@@ -18,6 +19,42 @@ app = typer.Typer(
         "Configure and run a BPM/BRS-scoped assistant for template discovery and guidance."
     ),
 )
+
+
+@app.command("history")
+def history_cmd(
+    limit: int = typer.Option(10, "--limit", "-n", help="Maximum number of sessions to show"),
+    kind: str = typer.Option("all", "--kind", help="Filter by session kind: all|start|doctor"),
+    format: str = typer.Option("table", "--format", "-f", help="Output format: table|json"),
+):
+    """
+    Show recent agent session transcripts.
+    """
+    kind_norm = (kind or "all").strip().lower()
+    if kind_norm not in ("all", "start", "doctor"):
+        typer.secho(f"Error: invalid kind '{kind}'. Use all|start|doctor.", err=True, fg=typer.colors.RED)
+        raise typer.Exit(code=1)
+
+    prefix = None if kind_norm == "all" else kind_norm
+    files = agent_session.list_session_files(prefix=prefix, limit=limit)
+    rows = [agent_session.summarize_session(p) for p in files]
+
+    if (format or "table").lower() == "json":
+        typer.echo(json.dumps(rows, indent=2))
+        return
+
+    if not rows:
+        typer.echo("No agent sessions found.")
+        return
+
+    typer.echo("Recent agent sessions:")
+    for i, row in enumerate(rows, start=1):
+        status = "ok" if row.get("ok") is True else ("fail" if row.get("ok") is False else "-")
+        decision = row.get("decision") or "-"
+        typer.echo(
+            f"{i:>2}. kind={row.get('kind')} status={status} events={row.get('event_count')} "
+            f"decision={decision} file={row.get('file')}"
+        )
 
 
 @app.command("config")
