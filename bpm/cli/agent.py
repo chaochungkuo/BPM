@@ -357,6 +357,7 @@ def start_cmd(
     Start BPM/BRS-scoped assistant.
     """
     typer.secho("BPM Agent scope: BPM/BRS analysis support only.", fg=typer.colors.CYAN)
+    typer.secho("Hello, I am BPM Agent. I can help with BPM/BRS analysis planning and template selection.", fg=typer.colors.CYAN)
     session_file = agent_session.new_session_file(prefix="start")
     agent_session.append_event(
         session_file,

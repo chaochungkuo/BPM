@@ -68,6 +68,7 @@ def test_agent_start_chat_mode(tmpdir, monkeypatch):
 
     r = runner.invoke(root_app, ["agent", "start", "--goal", "methylation analysis"], input="quit\n")
     assert r.exit_code == 0, r.output
+    assert "Hello, I am BPM Agent." in r.output
     assert "BPM Agent Chat" in r.output
     assert "Provider:" in r.output
     assert "Use template illumina_methylation_process." in r.output
