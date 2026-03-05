@@ -24,6 +24,9 @@ test = 'python -m pip install -e ".[dev]" && pytest'
 lint = "ruff check ."
 fmt = "black ."
 fmt-check = "black --check ."
+version-show = "python scripts/version_guard.py show"
+version-check = "python scripts/version_guard.py check"
+version-sync = "python scripts/version_guard.py sync"
 
 [package]
 name = "bpm-cli"

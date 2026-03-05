@@ -59,6 +59,18 @@ pixi run lint   # ruff
 pixi run fmt    # black
 ```
 
+## Versioning
+
+`bpm/_version.py` is the single source of truth for BPM version.
+
+To keep `pixi.toml` package metadata aligned:
+
+```bash
+pixi run version-show   # print source/pixi versions
+pixi run version-check  # fail if mismatch
+pixi run version-sync   # copy source version into pixi.toml
+```
+
 ## CLI overview
 
 - `bpm resource …`: manage BRS stores (add/activate/remove/list/info)
