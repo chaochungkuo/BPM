@@ -48,3 +48,70 @@ def test_missing_required_raises():
         assert False, "Expected ValueError for missing required param"
     except ValueError as e:
         assert "Missing required parameters: b" in str(e)
+
+
+def test_project_template_params_match_by_source_template():
+    class S:
+        def __init__(self, name, typ="str", cli=None, required=False, default=None):
+            self.name = name
+            self.type = typ
+            self.cli = cli
+            self.required = required
+            self.default = default
+
+    class D:
+        id = "illumina_methylation_array"
+        params = {
+            "authors": S("authors", typ="str", default="unknown"),
+        }
+
+    project = {
+        "name": "P",
+        "project_path": "nextgen:/P",
+        "templates": [
+            {
+                "id": "my_alias",
+                "source_template": "illumina_methylation_array",
+                "params": {"authors": "Stored Author"},
+            }
+        ],
+    }
+
+    out = resolve(
+        D(),
+        {},
+        project,
+        {"project": type("P", (), {"name": "P"})(), "template": type("T", (), {"id": "my_alias"})(), "params": {}},
+    )
+    assert out["authors"] == "Stored Author"
+
+
+def test_project_authors_fallback_when_placeholder_unknown():
+    class S:
+        def __init__(self, name, typ="str", cli=None, required=False, default=None):
+            self.name = name
+            self.type = typ
+            self.cli = cli
+            self.required = required
+            self.default = default
+
+    class D:
+        id = "illumina_methylation_array"
+        params = {
+            "authors": S("authors", typ="str", default="unknown"),
+        }
+
+    project = {
+        "name": "P",
+        "project_path": "nextgen:/P",
+        "authors": [{"id": "jbremer", "name": "Juliane Bremer"}],
+        "templates": [{"id": "illumina_methylation_array", "params": {"authors": "unknown"}}],
+    }
+
+    out = resolve(
+        D(),
+        {},
+        project,
+        {"project": type("P", (), {"name": "P"})(), "template": type("T", (), {"id": "illumina_methylation_array"})(), "params": {}},
+    )
+    assert out["authors"] == "Juliane Bremer"

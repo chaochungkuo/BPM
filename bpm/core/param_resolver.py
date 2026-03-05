@@ -27,6 +27,39 @@ def _coerce(val: Any, typ: str) -> Any:
     return val  # 'str' or unknown -> leave as-is
 
 
+def _project_authors_as_string(project: dict | None) -> str | None:
+    """
+    Convert project-level authors into a display string.
+
+    Supports project.yaml authors as:
+      - list[dict]: prefers "name", falls back to "id"
+      - list[str]
+      - comma-separated string
+    """
+    if not project:
+        return None
+    raw = project.get("authors")
+    if isinstance(raw, str):
+        val = raw.strip()
+        return val or None
+    if not isinstance(raw, list):
+        return None
+    parts: list[str] = []
+    for item in raw:
+        if isinstance(item, dict):
+            name = str(item.get("name") or "").strip()
+            aid = str(item.get("id") or "").strip()
+            if name:
+                parts.append(name)
+            elif aid:
+                parts.append(aid)
+        elif isinstance(item, str) and item.strip():
+            parts.append(item.strip())
+    if not parts:
+        return None
+    return ", ".join(parts)
+
+
 def resolve(desc, cli_params: Dict[str, Any], project: dict | None, ctx_like: dict) -> Dict[str, Any]:
     """
     Compute final parameter values for a template, with precedence and interpolation.
@@ -61,7 +94,7 @@ def resolve(desc, cli_params: Dict[str, Any], project: dict | None, ctx_like: di
     # 2) project-stored values
     if project:
         for t in project.get("templates", []):
-            if t.get("id") == desc.id:
+            if t.get("id") == desc.id or t.get("source_template") == desc.id:
                 for k, v in (t.get("params") or {}).items():
                     base[k] = v
 
@@ -74,6 +107,15 @@ def resolve(desc, cli_params: Dict[str, Any], project: dict | None, ctx_like: di
     for k, spec in desc.params.items():
         if k in base:
             base[k] = _coerce(base[k], spec.type)
+
+    # 4b) project-level authors fallback for common placeholder values.
+    # This avoids persisting "unknown" when project.yaml already has authors.
+    if "authors" in desc.params and "authors" not in (cli_params or {}):
+        av = base.get("authors")
+        if av is None or (isinstance(av, str) and av.strip().lower() in ("", "unknown", "na", "n/a")):
+            p_auth = _project_authors_as_string(project)
+            if p_auth:
+                base["authors"] = p_auth
 
     # 5) interpolate ${ctx.*} strings
     # The ctx_like can be a minimal object/dict graph, just needs attributes/keys.
