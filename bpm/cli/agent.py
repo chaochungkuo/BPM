@@ -128,6 +128,16 @@ def doctor_cmd(verbose: bool = typer.Option(False, "--verbose", help="Show extra
     health = agent_provider.healthcheck(cfg)
     if health.ok:
         typer.secho(f"[ok] Provider endpoint: {health.message}", fg=typer.colors.GREEN)
+        model_check = agent_provider.check_model_available(cfg)
+        if model_check.ok:
+            typer.secho(f"[ok] Model check: {model_check.message}", fg=typer.colors.GREEN)
+        else:
+            typer.secho(f"[fail] Model check: {model_check.message}", fg=typer.colors.RED)
+            failed = True
+        if verbose and model_check.available_models:
+            typer.echo("  models:")
+            for m in model_check.available_models[:20]:
+                typer.echo(f"  - {m}")
     else:
         typer.secho(f"[fail] Provider endpoint: {health.message}", fg=typer.colors.RED)
         failed = True
