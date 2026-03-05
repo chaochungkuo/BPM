@@ -229,6 +229,11 @@ def doctor_cmd(verbose: bool = typer.Option(False, "--verbose", help="Show extra
 @app.command("start")
 def start_cmd(
     goal: str = typer.Option("", "--goal", help="Optional analysis goal for non-interactive recommendation"),
+    analysis_type: str = typer.Option("", "--analysis-type", help="Optional analysis type hint"),
+    input_path: str = typer.Option("", "--input-path", help="Optional input path hint"),
+    platform: str = typer.Option("", "--platform", help="Optional platform hint"),
+    output_goal: str = typer.Option("", "--output-goal", help="Optional output goal hint"),
+    compute_mode: str = typer.Option("", "--compute-mode", help="Optional compute mode hint"),
     non_interactive: bool = typer.Option(
         False, "--non-interactive", help="Print recommendations and proposal without confirmation prompt"
     ),
@@ -240,19 +245,69 @@ def start_cmd(
     session_file = agent_session.new_session_file(prefix="start")
     agent_session.append_event(
         session_file,
-        {"event": "start_begin", "goal_provided": bool(goal), "non_interactive": non_interactive},
+        {
+            "event": "start_begin",
+            "goal_provided": bool(goal),
+            "non_interactive": non_interactive,
+            "hints": {
+                "analysis_type": analysis_type,
+                "input_path": input_path,
+                "platform": platform,
+                "output_goal": output_goal,
+                "compute_mode": compute_mode,
+            },
+        },
     )
 
     if not goal:
         goal = typer.prompt("What analysis do you need?")
 
+    intent = agent_recommend.Intent(
+        goal=goal,
+        analysis_type=analysis_type,
+        input_path=input_path,
+        platform=platform,
+        output_goal=output_goal,
+        compute_mode=compute_mode,
+    )
+
     try:
-        recs = agent_recommend.recommend(goal=goal, top_k=3)
+        recs = agent_recommend.recommend_from_intent(intent=intent, top_k=3)
+
+        # Adaptive questioning: ask only when recommendation is ambiguous.
+        asked: list[str] = []
+        if not non_interactive and agent_recommend.is_ambiguous(recs):
+            if not intent.analysis_type:
+                intent = agent_recommend.Intent(
+                    goal=intent.goal,
+                    analysis_type=typer.prompt("Analysis type (optional; enter to skip)", default=""),
+                    input_path=intent.input_path,
+                    platform=intent.platform,
+                    output_goal=intent.output_goal,
+                    compute_mode=intent.compute_mode,
+                )
+                asked.append("analysis_type")
+                recs = agent_recommend.recommend_from_intent(intent=intent, top_k=3)
+
+        if not non_interactive and agent_recommend.is_ambiguous(recs):
+            if not intent.input_path:
+                intent = agent_recommend.Intent(
+                    goal=intent.goal,
+                    analysis_type=intent.analysis_type,
+                    input_path=typer.prompt("Input path hint (optional; enter to skip)", default=""),
+                    platform=intent.platform,
+                    output_goal=intent.output_goal,
+                    compute_mode=intent.compute_mode,
+                )
+                asked.append("input_path")
+                recs = agent_recommend.recommend_from_intent(intent=intent, top_k=3)
+
         agent_session.append_event(
             session_file,
             {
                 "event": "start_recommendations",
-                "goal": goal,
+                "goal": intent.goal,
+                "asked_questions": asked,
                 "template_ids": [r.template_id for r in recs],
             },
         )

@@ -25,6 +25,37 @@ def _mk_min_brs(tmpdir):
     return src
 
 
+def _mk_ambiguous_brs(tmpdir):
+    src = tmpdir / "brs_ambiguous"
+    (src / "config").mkdir(parents=True)
+    (src / "templates" / "demo_process").mkdir(parents=True)
+    (src / "templates" / "rna_process").mkdir(parents=True)
+    (src / "repo.yaml").write_text(
+        "id: demo-brs\nname: Demo\ndescription: d\nversion: 0.0.1\nmaintainer: T <t@e>\n"
+    )
+    (src / "config" / "settings.yaml").write_text("schema_version: 1\n")
+    (src / "config" / "authors.yaml").write_text("authors: []\n")
+    (src / "templates" / "demo_process" / "template.config.yaml").write_text(
+        "id: demo_process\n"
+        "description: Process generic data\n"
+        "render:\n"
+        "  into: \"${ctx.project.name}/${ctx.template.id}/\"\n"
+        "  files:\n"
+        "    - a.j2 -> a.txt\n"
+    )
+    (src / "templates" / "demo_process" / "a.j2").write_text("hello\n")
+    (src / "templates" / "rna_process" / "template.config.yaml").write_text(
+        "id: rna_process\n"
+        "description: Process RNA sequencing\n"
+        "render:\n"
+        "  into: \"${ctx.project.name}/${ctx.template.id}/\"\n"
+        "  files:\n"
+        "    - b.j2 -> b.txt\n"
+    )
+    (src / "templates" / "rna_process" / "b.j2").write_text("hello\n")
+    return src
+
+
 def test_agent_start_recommendation(tmpdir, monkeypatch):
     runner = CliRunner()
     monkeypatch.setenv("BPM_CACHE", str(tmpdir / "cache"))
@@ -59,3 +90,20 @@ def test_agent_start_confirmation_no(tmpdir, monkeypatch):
     assert r.exit_code == 0, r.output
     assert "Proceed? (yes/no/edit)" in r.output
     assert "Cancelled." in r.output
+
+
+def test_agent_start_adaptive_questions_only_when_ambiguous(tmpdir, monkeypatch):
+    runner = CliRunner()
+    monkeypatch.setenv("BPM_CACHE", str(tmpdir / "cache"))
+
+    src = _mk_ambiguous_brs(tmpdir)
+    reg.add(str(src), activate=True)
+
+    r = runner.invoke(
+        root_app,
+        ["agent", "start", "--goal", "process"],
+        input="\n\nno\n",
+    )
+    assert r.exit_code == 0, r.output
+    assert "Analysis type (optional; enter to skip)" in r.output
+    assert "Input path hint (optional; enter to skip)" in r.output

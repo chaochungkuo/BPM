@@ -15,6 +15,16 @@ class Recommendation:
 
 
 @dataclass(frozen=True)
+class Intent:
+    goal: str = ""
+    analysis_type: str = ""
+    input_path: str = ""
+    platform: str = ""
+    output_goal: str = ""
+    compute_mode: str = ""
+
+
+@dataclass(frozen=True)
 class CommandProposal:
     template_id: str
     command: str
@@ -22,7 +32,11 @@ class CommandProposal:
 
 
 def recommend(goal: str, top_k: int = 3) -> list[Recommendation]:
-    q = (goal or "").strip().lower()
+    return recommend_from_intent(Intent(goal=goal), top_k=top_k)
+
+
+def recommend_from_intent(intent: Intent, top_k: int = 3) -> list[Recommendation]:
+    q = _intent_query(intent)
     tokens = [t for t in q.replace("_", " ").replace("-", " ").split() if t]
 
     recs: list[Recommendation] = []
@@ -70,3 +84,27 @@ def build_command_proposal(template_id: str) -> CommandProposal:
         command += f" --param {k}=<value>"
 
     return CommandProposal(template_id=template_id, command=command, required_params=required)
+
+
+def is_ambiguous(recs: list[Recommendation]) -> bool:
+    if not recs:
+        return True
+    if len(recs) == 1:
+        return recs[0].score < 2
+    top = recs[0].score
+    second = recs[1].score
+    if top < 2:
+        return True
+    return top <= second
+
+
+def _intent_query(intent: Intent) -> str:
+    parts = [
+        intent.goal,
+        intent.analysis_type,
+        intent.input_path,
+        intent.platform,
+        intent.output_goal,
+        intent.compute_mode,
+    ]
+    return " ".join([p.strip() for p in parts if p and p.strip()]).lower()
