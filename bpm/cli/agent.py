@@ -6,6 +6,7 @@ import typer
 from bpm.core import agent_config
 from bpm.core import agent_provider
 from bpm.core import agent_recommend
+from bpm.core import agent_session
 from bpm.core import agent_template_index
 from bpm.core.agent_config import AgentConfig
 
@@ -105,12 +106,24 @@ def doctor_cmd(verbose: bool = typer.Option(False, "--verbose", help="Show extra
     Validate agent readiness: config, token env, provider endpoint, and active BRS templates.
     """
     failed = False
+    session_file = agent_session.new_session_file(prefix="doctor")
+    agent_session.append_event(session_file, {"event": "doctor_start", "verbose": verbose})
 
     try:
         cfg = agent_config.load_config()
         typer.secho("[ok] Config loaded", fg=typer.colors.GREEN)
+        agent_session.append_event(
+            session_file,
+            {
+                "event": "doctor_config_loaded",
+                "provider": cfg.provider,
+                "base_url": cfg.base_url,
+                "model": cfg.model,
+            },
+        )
     except Exception as e:
         typer.secho(f"[fail] Config: {e}", fg=typer.colors.RED)
+        agent_session.append_event(session_file, {"event": "doctor_failed", "stage": "config", "error": str(e)})
         raise typer.Exit(code=1)
 
     if cfg.token_source == "env":
@@ -119,6 +132,9 @@ def doctor_cmd(verbose: bool = typer.Option(False, "--verbose", help="Show extra
             typer.secho(f"[ok] Token env found: {cfg.token_env_var}", fg=typer.colors.GREEN)
         else:
             typer.secho(f"[fail] Missing token env: {cfg.token_env_var}", fg=typer.colors.RED)
+            agent_session.append_event(
+                session_file, {"event": "doctor_failed", "stage": "token_env", "name": cfg.token_env_var}
+            )
             failed = True
     elif cfg.token_source == "none":
         typer.secho("[ok] Token not required (token_source=none)", fg=typer.colors.GREEN)
@@ -128,11 +144,16 @@ def doctor_cmd(verbose: bool = typer.Option(False, "--verbose", help="Show extra
     health = agent_provider.healthcheck(cfg)
     if health.ok:
         typer.secho(f"[ok] Provider endpoint: {health.message}", fg=typer.colors.GREEN)
+        agent_session.append_event(session_file, {"event": "doctor_endpoint_ok", "message": health.message})
         model_check = agent_provider.check_model_available(cfg)
         if model_check.ok:
             typer.secho(f"[ok] Model check: {model_check.message}", fg=typer.colors.GREEN)
+            agent_session.append_event(session_file, {"event": "doctor_model_ok", "message": model_check.message})
         else:
             typer.secho(f"[fail] Model check: {model_check.message}", fg=typer.colors.RED)
+            agent_session.append_event(
+                session_file, {"event": "doctor_failed", "stage": "model_check", "error": model_check.message}
+            )
             failed = True
         if verbose and model_check.available_models:
             typer.echo("  models:")
@@ -140,24 +161,32 @@ def doctor_cmd(verbose: bool = typer.Option(False, "--verbose", help="Show extra
                 typer.echo(f"  - {m}")
     else:
         typer.secho(f"[fail] Provider endpoint: {health.message}", fg=typer.colors.RED)
+        agent_session.append_event(session_file, {"event": "doctor_failed", "stage": "endpoint", "error": health.message})
         failed = True
 
     try:
         templates = agent_template_index.list_templates()
         if templates:
             typer.secho(f"[ok] Active BRS templates discovered: {len(templates)}", fg=typer.colors.GREEN)
+            agent_session.append_event(
+                session_file, {"event": "doctor_templates_ok", "count": len(templates)}
+            )
             if verbose:
                 for t in templates[:10]:
                     typer.echo(f"  - {t.template_id} ({t.descriptor_path})")
         else:
             typer.secho("[fail] No templates found in active BRS", fg=typer.colors.RED)
+            agent_session.append_event(session_file, {"event": "doctor_failed", "stage": "templates", "count": 0})
             failed = True
     except Exception as e:
         typer.secho(f"[fail] Template index: {e}", fg=typer.colors.RED)
+        agent_session.append_event(session_file, {"event": "doctor_failed", "stage": "template_index", "error": str(e)})
         failed = True
 
     if failed:
+        agent_session.append_event(session_file, {"event": "doctor_end", "ok": False})
         raise typer.Exit(code=1)
+    agent_session.append_event(session_file, {"event": "doctor_end", "ok": True})
 
 
 @app.command("start")
@@ -171,18 +200,33 @@ def start_cmd(
     Start BPM/BRS-scoped assistant (recommendation-only in this version).
     """
     typer.secho("BPM Agent scope: BPM/BRS analysis support only.", fg=typer.colors.CYAN)
+    session_file = agent_session.new_session_file(prefix="start")
+    agent_session.append_event(
+        session_file,
+        {"event": "start_begin", "goal_provided": bool(goal), "non_interactive": non_interactive},
+    )
 
     if not goal:
         goal = typer.prompt("What analysis do you need?")
 
     try:
         recs = agent_recommend.recommend(goal=goal, top_k=3)
+        agent_session.append_event(
+            session_file,
+            {
+                "event": "start_recommendations",
+                "goal": goal,
+                "template_ids": [r.template_id for r in recs],
+            },
+        )
     except Exception as e:
         typer.secho(f"Error: {e}", err=True, fg=typer.colors.RED)
+        agent_session.append_event(session_file, {"event": "start_error", "error": str(e)})
         raise typer.Exit(code=1)
 
     if not recs:
         typer.secho("No matching templates found in the active BRS.", fg=typer.colors.YELLOW)
+        agent_session.append_event(session_file, {"event": "start_no_matches", "goal": goal})
         raise typer.Exit(code=1)
 
     typer.echo("\nTop template recommendations:")
@@ -195,8 +239,18 @@ def start_cmd(
     top = recs[0]
     try:
         proposal = agent_recommend.build_command_proposal(top.template_id)
+        agent_session.append_event(
+            session_file,
+            {
+                "event": "start_proposal",
+                "template_id": proposal.template_id,
+                "command": proposal.command,
+                "required_params": proposal.required_params,
+            },
+        )
     except Exception as e:
         typer.secho(f"Warning: could not build command proposal: {e}", fg=typer.colors.YELLOW)
+        agent_session.append_event(session_file, {"event": "start_warning", "warning": str(e)})
         raise typer.Exit(code=0)
 
     typer.echo("\nProposed command:")
@@ -208,17 +262,22 @@ def start_cmd(
 
     if non_interactive:
         typer.echo("\nNote: execution is disabled in this version (proposal only).")
+        agent_session.append_event(session_file, {"event": "start_end", "decision": "non_interactive"})
         return
 
     decision = typer.prompt("Proceed? (yes/no/edit)", default="no").strip().lower()
+    agent_session.append_event(session_file, {"event": "start_decision", "decision": decision})
     if decision == "yes":
         typer.secho("Execution is disabled in this version. Proposal generated only.", fg=typer.colors.YELLOW)
+        agent_session.append_event(session_file, {"event": "start_end", "decision": "yes_disabled"})
         return
     if decision == "edit":
         edited = typer.prompt("Edit command", default=proposal.command)
         typer.echo("\nEdited command:")
         typer.echo(f"  {edited}")
         typer.secho("Execution is disabled in this version. Proposal generated only.", fg=typer.colors.YELLOW)
+        agent_session.append_event(session_file, {"event": "start_end", "decision": "edit", "edited_command": edited})
         return
 
     typer.echo("Cancelled.")
+    agent_session.append_event(session_file, {"event": "start_end", "decision": "no"})
