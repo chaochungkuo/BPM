@@ -20,6 +20,51 @@ app = typer.Typer(
     ),
 )
 
+def _render_template_context() -> str:
+    try:
+        entries = agent_template_index.list_templates()
+    except Exception:
+        entries = []
+    if not entries:
+        return "No active template metadata available."
+
+    lines = []
+    for e in entries[:50]:
+        lines.append(f"- {e.template_id} ({e.descriptor_path})")
+    return "Active BPM/BRS templates:\n" + "\n".join(lines)
+
+def _build_system_prompt() -> str:
+    return (
+        "You are BPM Agent, a CLI assistant strictly scoped to BPM/BRS.\n"
+        "Rules:\n"
+        "1) Only answer BPM/BRS analysis, templates, render/run guidance.\n"
+        "2) If out of scope, refuse briefly and redirect to BPM/BRS.\n"
+        "3) Prefer concrete commands and parameter guidance.\n"
+        "4) Do not claim actions were executed unless explicitly reported.\n"
+    )
+
+def _build_runtime_hint(user_text: str) -> str:
+    recs = agent_recommend.recommend(goal=user_text, top_k=3)
+    if not recs:
+        return "No matching template recommendations."
+    lines = ["Top template matches for current user turn:"]
+    for r in recs:
+        lines.append(f"- {r.template_id}: {r.reason} [source: {r.source_path}]")
+    try:
+        p = agent_recommend.build_command_proposal(recs[0].template_id)
+        lines.append(f"Suggested starter command: {p.command}")
+    except Exception:
+        pass
+    return "\n".join(lines)
+
+def _trim_history(messages: list[dict[str, str]], max_messages: int = 20) -> list[dict[str, str]]:
+    if len(messages) <= max_messages:
+        return messages
+    # Keep the first system message and the latest conversation turns.
+    head = messages[:1] if messages and messages[0].get("role") == "system" else []
+    tail = messages[-(max_messages - len(head)) :]
+    return head + tail
+
 
 @app.command("history")
 def history_cmd(
@@ -234,12 +279,13 @@ def start_cmd(
     platform: str = typer.Option("", "--platform", help="Optional platform hint"),
     output_goal: str = typer.Option("", "--output-goal", help="Optional output goal hint"),
     compute_mode: str = typer.Option("", "--compute-mode", help="Optional compute mode hint"),
+    chat: bool = typer.Option(True, "--chat/--no-chat", help="Enable LLM chat mode (default: on)"),
     non_interactive: bool = typer.Option(
         False, "--non-interactive", help="Print recommendations and proposal without confirmation prompt"
     ),
 ):
     """
-    Start BPM/BRS-scoped assistant (recommendation-only in this version).
+    Start BPM/BRS-scoped assistant.
     """
     typer.secho("BPM Agent scope: BPM/BRS analysis support only.", fg=typer.colors.CYAN)
     session_file = agent_session.new_session_file(prefix="start")
@@ -259,6 +305,78 @@ def start_cmd(
         },
     )
 
+    # Interactive LLM chat mode (default)
+    if chat and (not non_interactive):
+        try:
+            cfg = agent_config.load_config()
+            agent_config.validate_config(cfg)
+        except Exception as e:
+            typer.secho(f"Error: agent provider not configured: {e}", err=True, fg=typer.colors.RED)
+            typer.echo("Run: bpm agent config")
+            agent_session.append_event(session_file, {"event": "start_error", "stage": "config", "error": str(e)})
+            raise typer.Exit(code=1)
+
+        health = agent_provider.healthcheck(cfg)
+        if not health.ok:
+            typer.secho(f"Error: provider check failed: {health.message}", err=True, fg=typer.colors.RED)
+            agent_session.append_event(
+                session_file, {"event": "start_error", "stage": "provider_health", "error": health.message}
+            )
+            raise typer.Exit(code=1)
+
+        model_check = agent_provider.check_model_available(cfg)
+        if not model_check.ok:
+            typer.secho(f"Error: model unavailable: {model_check.message}", err=True, fg=typer.colors.RED)
+            agent_session.append_event(
+                session_file, {"event": "start_error", "stage": "model_check", "error": model_check.message}
+            )
+            raise typer.Exit(code=1)
+
+        typer.echo(f"Connected to provider '{cfg.provider}' using model '{cfg.model}'.")
+        typer.echo("Type 'exit' or 'quit' to end the session.\n")
+
+        messages: list[dict[str, str]] = [
+            {"role": "system", "content": _build_system_prompt()},
+            {"role": "system", "content": _render_template_context()},
+        ]
+        pending = goal.strip() if goal else ""
+
+        while True:
+            if pending:
+                user_text = pending
+                pending = ""
+                typer.echo(f"you> {user_text}")
+            else:
+                user_text = typer.prompt("you").strip()
+
+            if user_text.lower() in ("exit", "quit", "/exit", "/quit"):
+                agent_session.append_event(session_file, {"event": "start_end", "decision": "quit"})
+                typer.echo("Session ended.")
+                return
+
+            runtime_hint = _build_runtime_hint(user_text)
+            request_messages = list(messages)
+            request_messages.append({"role": "system", "content": runtime_hint})
+            request_messages.append({"role": "user", "content": user_text})
+
+            agent_session.append_event(session_file, {"event": "chat_user", "text": user_text})
+            try:
+                resp = agent_provider.chat(cfg, request_messages)
+                reply = resp.text
+            except Exception as e:
+                msg = str(e)
+                typer.secho(f"agent error: {msg}", fg=typer.colors.RED)
+                agent_session.append_event(session_file, {"event": "chat_error", "error": msg})
+                continue
+
+            typer.secho(f"agent> {reply}", fg=typer.colors.GREEN)
+            agent_session.append_event(session_file, {"event": "chat_assistant", "text": reply})
+
+            messages.append({"role": "user", "content": user_text})
+            messages.append({"role": "assistant", "content": reply})
+            messages = _trim_history(messages, max_messages=20)
+
+    # Recommendation-only mode
     if not goal:
         goal = typer.prompt("What analysis do you need?")
 
@@ -276,7 +394,7 @@ def start_cmd(
 
         # Adaptive questioning: ask only when recommendation is ambiguous.
         asked: list[str] = []
-        if not non_interactive and agent_recommend.is_ambiguous(recs):
+        if (not non_interactive) and agent_recommend.is_ambiguous(recs):
             if not intent.analysis_type:
                 intent = agent_recommend.Intent(
                     goal=intent.goal,
@@ -289,7 +407,7 @@ def start_cmd(
                 asked.append("analysis_type")
                 recs = agent_recommend.recommend_from_intent(intent=intent, top_k=3)
 
-        if not non_interactive and agent_recommend.is_ambiguous(recs):
+        if (not non_interactive) and agent_recommend.is_ambiguous(recs):
             if not intent.input_path:
                 intent = agent_recommend.Intent(
                     goal=intent.goal,

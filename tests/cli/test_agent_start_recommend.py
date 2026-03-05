@@ -84,7 +84,7 @@ def test_agent_start_confirmation_no(tmpdir, monkeypatch):
 
     r = runner.invoke(
         root_app,
-        ["agent", "start", "--goal", "illumina methylation analysis"],
+        ["agent", "start", "--no-chat", "--goal", "illumina methylation analysis"],
         input="no\n",
     )
     assert r.exit_code == 0, r.output
@@ -101,7 +101,7 @@ def test_agent_start_adaptive_questions_only_when_ambiguous(tmpdir, monkeypatch)
 
     r = runner.invoke(
         root_app,
-        ["agent", "start", "--goal", "process"],
+        ["agent", "start", "--no-chat", "--goal", "process"],
         input="\n\nno\n",
     )
     assert r.exit_code == 0, r.output

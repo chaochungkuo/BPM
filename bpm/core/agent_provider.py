@@ -20,6 +20,10 @@ class ModelCheckResult:
     message: str
     available_models: list[str]
 
+@dataclass(frozen=True)
+class ChatResult:
+    text: str
+
 
 def healthcheck(cfg: AgentConfig) -> HealthResult:
     url = _health_url(cfg)
@@ -114,6 +118,17 @@ def list_models(cfg: AgentConfig) -> list[str]:
                 out.append(item.strip())
     return sorted(set(out))
 
+def chat(cfg: AgentConfig, messages: list[dict[str, str]]) -> ChatResult:
+    """
+    Send a chat request to the configured provider and return assistant text.
+    """
+    provider = cfg.provider
+    if provider in ("openai", "openai_compatible", "azure_openai"):
+        return _chat_openai_family(cfg, messages)
+    if provider == "anthropic":
+        return _chat_anthropic(cfg, messages)
+    raise RuntimeError(f"Unsupported provider for chat: {provider}")
+
 
 def _health_url(cfg: AgentConfig) -> str:
     base = cfg.base_url.rstrip("/")
@@ -124,6 +139,106 @@ def _health_url(cfg: AgentConfig) -> str:
     if cfg.provider == "azure_openai":
         return f"{base}/openai/models?api-version=2024-06-01"
     return f"{base}/models"
+
+def _chat_openai_family(cfg: AgentConfig, messages: list[dict[str, str]]) -> ChatResult:
+    headers = {"Content-Type": "application/json", "Accept": "application/json"}
+    token = get_token(cfg)
+    if token:
+        if cfg.provider == "azure_openai":
+            headers["api-key"] = token
+        else:
+            headers["Authorization"] = f"Bearer {token}"
+
+    base = cfg.base_url.rstrip("/")
+    if cfg.provider == "azure_openai":
+        url = f"{base}/openai/deployments/{cfg.model}/chat/completions?api-version=2024-06-01"
+        payload = {
+            "messages": messages,
+            "temperature": cfg.temperature,
+            "max_tokens": cfg.max_tokens,
+        }
+    else:
+        url = f"{base}/chat/completions"
+        payload = {
+            "model": cfg.model,
+            "messages": messages,
+            "temperature": cfg.temperature,
+            "max_tokens": cfg.max_tokens,
+        }
+
+    raw = _post_json(url=url, headers=headers, payload=payload, timeout=cfg.timeout_seconds)
+    try:
+        data = json.loads(raw)
+        choices = data.get("choices") or []
+        if not choices:
+            raise RuntimeError("No choices in chat response")
+        msg = choices[0].get("message") or {}
+        content = msg.get("content")
+        if not isinstance(content, str) or not content.strip():
+            raise RuntimeError("Empty assistant response")
+        return ChatResult(text=content.strip())
+    except Exception as e:
+        raise RuntimeError(f"Failed to parse chat response: {e}")
+
+def _chat_anthropic(cfg: AgentConfig, messages: list[dict[str, str]]) -> ChatResult:
+    headers = {"Content-Type": "application/json", "Accept": "application/json"}
+    token = get_token(cfg)
+    if token:
+        headers["x-api-key"] = token
+    headers["anthropic-version"] = "2023-06-01"
+
+    base = cfg.base_url.rstrip("/")
+    url = f"{base}/v1/messages"
+
+    system_parts = []
+    convo = []
+    for m in messages:
+        role = (m.get("role") or "").strip().lower()
+        content = m.get("content") or ""
+        if role == "system":
+            system_parts.append(content)
+            continue
+        if role not in ("user", "assistant"):
+            continue
+        convo.append({"role": role, "content": content})
+
+    payload = {
+        "model": cfg.model,
+        "max_tokens": cfg.max_tokens,
+        "temperature": cfg.temperature,
+        "messages": convo,
+    }
+    if system_parts:
+        payload["system"] = "\n\n".join(system_parts)
+
+    raw = _post_json(url=url, headers=headers, payload=payload, timeout=cfg.timeout_seconds)
+    try:
+        data = json.loads(raw)
+        content = data.get("content") or []
+        if not isinstance(content, list) or not content:
+            raise RuntimeError("No content in anthropic response")
+        text_parts = []
+        for part in content:
+            if isinstance(part, dict) and part.get("type") == "text":
+                txt = part.get("text")
+                if isinstance(txt, str):
+                    text_parts.append(txt)
+        reply = "\n".join([t for t in text_parts if t.strip()]).strip()
+        if not reply:
+            raise RuntimeError("Empty assistant response")
+        return ChatResult(text=reply)
+    except Exception as e:
+        raise RuntimeError(f"Failed to parse anthropic response: {e}")
+
+def _post_json(url: str, headers: dict[str, str], payload: dict, timeout: int) -> str:
+    data = json.dumps(payload).encode("utf-8")
+    req = request.Request(url=url, headers=headers, data=data, method="POST")
+    try:
+        with request.urlopen(req, timeout=timeout) as resp:
+            return resp.read().decode("utf-8", errors="replace")
+    except error.HTTPError as e:
+        msg = _extract_http_error(e)
+        raise RuntimeError(msg)
 
 
 def _extract_http_error(exc: error.HTTPError) -> str:
