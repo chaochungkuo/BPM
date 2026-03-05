@@ -21,6 +21,7 @@ Read the error
 - Undefined Jinja variable → add a param or fix the template.
 - Entry not found or permission denied → ensure `run.sh` renders and is executable.
 - Tool not found → load modules/conda/container in hooks or script.
+- Agent/provider failure → run `bpm agent doctor` and fix reported config/token/model issues.
 
 Inspect outputs
 - Check the rendered folder under `render.into`.
@@ -28,4 +29,3 @@ Inspect outputs
 
 See also
 - Concepts → Error Handling & Diagnostics for more detail.
-

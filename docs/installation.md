@@ -17,7 +17,7 @@ BPM supports multiple setup paths. Choose one that fits your workflow.
 
 - From source (editable) while hacking on BPM:
   ```bash
-  git clone https://github.com/your-org/BPM.git
+  git clone https://github.com/chaochungkuo/BPM.git
   cd BPM
   python -m pip install -e .
   ```
@@ -26,10 +26,11 @@ BPM supports multiple setup paths. Choose one that fits your workflow.
 
 ```bash
 pixi install           # create env with runtime deps
-pixi run python -m pip install bpm-cli
+pixi run dev-install   # editable install with dev extras
 pixi run test          # run tests
 pixi run lint          # ruff
 pixi run fmt           # black
+pixi run version-check # ensure bpm/_version.py == pixi.toml package.version
 ```
 
 ## Conda/Mamba
@@ -58,3 +59,4 @@ python -m pip install -e .      # from source checkout
 - Python 3.10 or newer is required.
 - `rich` enhances table output; if absent, BPM falls back to plain text.
 - For isolated CLI installs, `pipx install bpm-cli` also works (command is still `bpm`).
+- Version source of truth is `bpm/_version.py`; use `pixi run version-sync` to sync pixi package metadata.

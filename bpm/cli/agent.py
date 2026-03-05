@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import json
+from pathlib import Path
 import typer
 from rich.console import Console
 from rich.panel import Panel
@@ -12,6 +13,7 @@ from bpm.core import agent_provider
 from bpm.core import agent_recommend
 from bpm.core import agent_session
 from bpm.core import agent_template_index
+from bpm.core import agent_methods
 from bpm.core.agent_config import AgentConfig
 
 app = typer.Typer(
@@ -169,6 +171,34 @@ def history_cmd(
             f"{i:>2}. kind={row.get('kind')} status={status} events={row.get('event_count')} "
             f"decision={decision} file={row.get('file')}"
         )
+
+@app.command("methods")
+def methods_cmd(
+    project_dir: str = typer.Option(".", "--dir", help="Project directory containing project.yaml"),
+    style: str = typer.Option("full", "--style", help="Output style: full|concise"),
+    out: str | None = typer.Option(None, "--out", help="Write output markdown to a file path"),
+):
+    """
+    Generate a publication-oriented methods draft from project history.
+    """
+    try:
+        result = agent_methods.generate_methods_markdown(Path(project_dir), style=style)
+    except Exception as e:
+        typer.secho(f"Error: {e}", err=True, fg=typer.colors.RED)
+        raise typer.Exit(code=1)
+
+    if out:
+        out_path = Path(out).expanduser().resolve()
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_text(result.markdown, encoding="utf-8")
+        typer.secho(
+            f"[ok] Methods draft written: {out_path} "
+            f"(templates={result.templates_count}, citations={result.citation_count})",
+            fg=typer.colors.GREEN,
+        )
+        return
+
+    typer.echo(result.markdown)
 
 
 @app.command("config")

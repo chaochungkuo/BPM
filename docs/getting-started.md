@@ -21,7 +21,7 @@ python -m pip install -e .
 ## Create a Project
 
 ```
-bpm project init 250903_TEST --path "/abs/path/250903_TEST"
+bpm project init 250903_TEST --outdir "/abs/path"
 ```
 
 ## Add and Activate a BRS
@@ -35,9 +35,17 @@ bpm resource list
 
 ```
 cd 250903_TEST
-bpm template render --param "bcl_dir=/data/BCL" demux_bclconvert
+bpm template render demux_bclconvert --param "bcl_dir=/data/BCL"
 bpm template run demux_bclconvert
 bpm template publish demux_bclconvert
+```
+
+## (Optional) Start BPM Agent
+
+```bash
+bpm agent config
+bpm agent doctor
+bpm agent start --goal "help me choose the right template"
 ```
 
 See Concepts for key ideas and CLI for command help.

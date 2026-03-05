@@ -38,7 +38,7 @@ BPM is a lightweight CLI that sits above your scripts and pipelines. It organize
 - Getting Started — quick install and first run.
 - Concepts — projects & paths, templates & rendering, stores & cache, context (ctx).
 - How‑To — task‑focused guides (project vs ad‑hoc, run/publish, manage stores).
-- CLI — command guides for project, template, resource, workflow.
+- CLI — command guides for project, template, resource, workflow, and agent.
 - Reference — file formats, context API, exit codes.
 - BRS — what a resource store is and how templates are organized.
 

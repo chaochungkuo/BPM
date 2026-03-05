@@ -14,3 +14,4 @@ Quick guides for each BPM command group with copy-paste examples.
 - [bpm resource](./bpm-resource.md): manage BRS stores (add/activate/list/info/update/remove)
 - [bpm template](./bpm-template.md): render, run, and publish templates
 - [bpm workflow](./bpm-workflow.md): run workflows
+- [bpm agent](./bpm-agent.md): configure and use the provider-backed BPM/BRS assistant
