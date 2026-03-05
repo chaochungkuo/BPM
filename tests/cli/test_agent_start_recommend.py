@@ -32,8 +32,30 @@ def test_agent_start_recommendation(tmpdir, monkeypatch):
     src = _mk_min_brs(tmpdir)
     reg.add(str(src), activate=True)
 
-    r = runner.invoke(root_app, ["agent", "start", "--goal", "illumina methylation analysis"])
+    r = runner.invoke(
+        root_app,
+        ["agent", "start", "--goal", "illumina methylation analysis", "--non-interactive"],
+    )
     assert r.exit_code == 0, r.output
     assert "Top template recommendations" in r.output
     assert "illumina_methylation_process" in r.output
     assert "source:" in r.output
+    assert "Proposed command:" in r.output
+    assert "bpm template render illumina_methylation_process" in r.output
+
+
+def test_agent_start_confirmation_no(tmpdir, monkeypatch):
+    runner = CliRunner()
+    monkeypatch.setenv("BPM_CACHE", str(tmpdir / "cache"))
+
+    src = _mk_min_brs(tmpdir)
+    reg.add(str(src), activate=True)
+
+    r = runner.invoke(
+        root_app,
+        ["agent", "start", "--goal", "illumina methylation analysis"],
+        input="no\n",
+    )
+    assert r.exit_code == 0, r.output
+    assert "Proceed? (yes/no/edit)" in r.output
+    assert "Cancelled." in r.output

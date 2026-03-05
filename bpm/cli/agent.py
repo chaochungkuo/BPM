@@ -153,6 +153,9 @@ def doctor_cmd(verbose: bool = typer.Option(False, "--verbose", help="Show extra
 @app.command("start")
 def start_cmd(
     goal: str = typer.Option("", "--goal", help="Optional analysis goal for non-interactive recommendation"),
+    non_interactive: bool = typer.Option(
+        False, "--non-interactive", help="Print recommendations and proposal without confirmation prompt"
+    ),
 ):
     """
     Start BPM/BRS-scoped assistant (recommendation-only in this version).
@@ -179,4 +182,33 @@ def start_cmd(
         typer.echo(f"   why: {r.reason}")
         typer.echo(f"   source: {r.source_path}")
 
-    typer.echo("\nNote: execution is not enabled yet in this version (recommendation only).")
+    top = recs[0]
+    try:
+        proposal = agent_recommend.build_command_proposal(top.template_id)
+    except Exception as e:
+        typer.secho(f"Warning: could not build command proposal: {e}", fg=typer.colors.YELLOW)
+        raise typer.Exit(code=0)
+
+    typer.echo("\nProposed command:")
+    typer.echo(f"  {proposal.command}")
+    if proposal.required_params:
+        typer.echo("Required parameters to fill:")
+        for p in proposal.required_params:
+            typer.echo(f"  - {p}")
+
+    if non_interactive:
+        typer.echo("\nNote: execution is disabled in this version (proposal only).")
+        return
+
+    decision = typer.prompt("Proceed? (yes/no/edit)", default="no").strip().lower()
+    if decision == "yes":
+        typer.secho("Execution is disabled in this version. Proposal generated only.", fg=typer.colors.YELLOW)
+        return
+    if decision == "edit":
+        edited = typer.prompt("Edit command", default=proposal.command)
+        typer.echo("\nEdited command:")
+        typer.echo(f"  {edited}")
+        typer.secho("Execution is disabled in this version. Proposal generated only.", fg=typer.colors.YELLOW)
+        return
+
+    typer.echo("Cancelled.")

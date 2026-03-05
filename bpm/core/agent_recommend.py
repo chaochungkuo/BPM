@@ -14,6 +14,13 @@ class Recommendation:
     source_path: str
 
 
+@dataclass(frozen=True)
+class CommandProposal:
+    template_id: str
+    command: str
+    required_params: list[str]
+
+
 def recommend(goal: str, top_k: int = 3) -> list[Recommendation]:
     q = (goal or "").strip().lower()
     tokens = [t for t in q.replace("_", " ").replace("-", " ").split() if t]
@@ -48,3 +55,18 @@ def recommend(goal: str, top_k: int = 3) -> list[Recommendation]:
 
     recs.sort(key=lambda r: (-r.score, r.template_id))
     return recs[:top_k]
+
+
+def build_command_proposal(template_id: str) -> CommandProposal:
+    desc = load_desc(template_id)
+    required = []
+    for k, p in (desc.params or {}).items():
+        if bool(getattr(p, "required", False)):
+            required.append(str(k))
+    required.sort()
+
+    command = f"bpm template render {template_id}"
+    for k in required:
+        command += f" --param {k}=<value>"
+
+    return CommandProposal(template_id=template_id, command=command, required_params=required)
