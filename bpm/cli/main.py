@@ -4,6 +4,7 @@ from bpm.cli import project as project_cli
 from bpm.cli import template as template_cli
 from bpm.cli import resource as resource_cli
 from bpm.cli import workflow as workflow_cli
+from bpm.cli import agent as agent_cli
 
 if not logging.getLogger().handlers:
     logging.basicConfig(level=logging.INFO, format="%(message)s")
@@ -29,6 +30,7 @@ app.add_typer(project_cli.app, name="project", help="Create and inspect BPM proj
 app.add_typer(template_cli.app, name="template", help="Render/run/publish templates from the active BRS.")
 app.add_typer(resource_cli.app, name="resource", help="Manage BRS resource stores (add/activate/list/info/remove).")
 app.add_typer(workflow_cli.app, name="workflow", help="Run workflows from the active BRS.")
+app.add_typer(agent_cli.app, name="agent", help="Configure and run the BPM/BRS assistant.")
 
 
 @app.callback(invoke_without_command=True)
