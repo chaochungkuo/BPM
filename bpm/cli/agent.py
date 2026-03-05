@@ -3,6 +3,9 @@ from __future__ import annotations
 import os
 import json
 import typer
+from rich.console import Console
+from rich.panel import Panel
+from rich.text import Text
 
 from bpm.core import agent_config
 from bpm.core import agent_provider
@@ -19,6 +22,8 @@ app = typer.Typer(
         "Configure and run a BPM/BRS-scoped assistant for template discovery and guidance."
     ),
 )
+_console = Console()
+
 
 def _render_template_context() -> str:
     try:
@@ -64,6 +69,70 @@ def _trim_history(messages: list[dict[str, str]], max_messages: int = 20) -> lis
     head = messages[:1] if messages and messages[0].get("role") == "system" else []
     tail = messages[-(max_messages - len(head)) :]
     return head + tail
+
+
+def _print_chat_header(provider: str, model: str) -> None:
+    title = Text("BPM Agent Chat", style="bold cyan")
+    body = (
+        f"Provider: [bold]{provider}[/bold]\n"
+        f"Model: [bold]{model}[/bold]\n\n"
+        "Commands:\n"
+        "  [bold]/help[/bold]       Show command help\n"
+        "  [bold]/templates[/bold]  List active template ids\n"
+        "  [bold]/recommend X[/bold]  Recommend templates for query X\n"
+        "  [bold]exit[/bold] or [bold]quit[/bold]  End session"
+    )
+    _console.print(Panel.fit(body, title=title, border_style="cyan"))
+
+
+def _print_agent_message(reply: str) -> None:
+    _console.print(Panel(reply, title="agent", border_style="green"))
+
+
+def _print_user_message(text: str) -> None:
+    _console.print(f"[bold cyan]you>[/bold cyan] {text}")
+
+
+def _handle_chat_command(user_text: str) -> str | None:
+    t = user_text.strip()
+    if t == "/help":
+        _console.print(
+            Panel.fit(
+                "Commands:\n"
+                "  /help\n"
+                "  /templates\n"
+                "  /recommend <query>\n"
+                "  exit | quit",
+                title="Help",
+                border_style="blue",
+            )
+        )
+        return "handled"
+    if t == "/templates":
+        try:
+            entries = agent_template_index.list_templates()
+        except Exception as e:
+            _console.print(f"[red]template lookup failed:[/red] {e}")
+            return "handled"
+        if not entries:
+            _console.print("No active templates.")
+            return "handled"
+        preview = "\n".join([f"- {e.template_id}" for e in entries[:30]])
+        _console.print(Panel(preview, title="Templates", border_style="blue"))
+        return "handled"
+    if t.startswith("/recommend "):
+        query = t[len("/recommend ") :].strip()
+        recs = agent_recommend.recommend(goal=query, top_k=3)
+        if not recs:
+            _console.print("No matches.")
+            return "handled"
+        lines = []
+        for r in recs:
+            conf = "high" if r.score >= 3 else ("medium" if r.score == 2 else "low")
+            lines.append(f"- {r.template_id} ({conf}): {r.reason}")
+        _console.print(Panel("\n".join(lines), title=f"Recommendations: {query}", border_style="blue"))
+        return "handled"
+    return None
 
 
 @app.command("history")
@@ -332,8 +401,8 @@ def start_cmd(
             )
             raise typer.Exit(code=1)
 
-        typer.echo(f"Connected to provider '{cfg.provider}' using model '{cfg.model}'.")
-        typer.echo("Type 'exit' or 'quit' to end the session.\n")
+        _print_chat_header(cfg.provider, cfg.model)
+        typer.echo("")
 
         messages: list[dict[str, str]] = [
             {"role": "system", "content": _build_system_prompt()},
@@ -345,7 +414,7 @@ def start_cmd(
             if pending:
                 user_text = pending
                 pending = ""
-                typer.echo(f"you> {user_text}")
+                _print_user_message(user_text)
             else:
                 user_text = typer.prompt("you").strip()
 
@@ -353,6 +422,8 @@ def start_cmd(
                 agent_session.append_event(session_file, {"event": "start_end", "decision": "quit"})
                 typer.echo("Session ended.")
                 return
+            if _handle_chat_command(user_text):
+                continue
 
             runtime_hint = _build_runtime_hint(user_text)
             request_messages = list(messages)
@@ -369,7 +440,7 @@ def start_cmd(
                 agent_session.append_event(session_file, {"event": "chat_error", "error": msg})
                 continue
 
-            typer.secho(f"agent> {reply}", fg=typer.colors.GREEN)
+            _print_agent_message(reply)
             agent_session.append_event(session_file, {"event": "chat_assistant", "text": reply})
 
             messages.append({"role": "user", "content": user_text})
