@@ -81,6 +81,13 @@ def _mk_project(tmpdir):
         "  R: 4.4.0\n"
         "  minfi: 1.48.0\n"
     )
+    (pdir / "dgea").mkdir(parents=True)
+    (pdir / "dgea" / ".nextflow.log").write_text("N E X T F L O W  ~  version 24.10.4\n")
+    (pdir / "dgea" / "results").mkdir(parents=True)
+    (pdir / "dgea" / "results" / "software_versions.yml").write_text(
+        "versions:\n"
+        "  bcl-convert: 4.2.7\n"
+    )
     return pdir
 
 
@@ -98,6 +105,8 @@ def test_agent_methods_stdout_and_outfile(tmpdir, monkeypatch):
     assert "DemoProj" in r.output
     assert "Methylation preprocessing" in r.output
     assert "R | 4.4.0" in r.output
+    assert "nextflow | 24.10.4" in r.output
+    assert "bcl-convert | 4.2.7" in r.output
     assert "10.1093/bioinformatics/btu049" in r.output
 
     out_path = tmpdir / "methods.md"

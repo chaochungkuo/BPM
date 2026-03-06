@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
+import re
 from typing import Any
 
 from bpm.core import brs_loader
@@ -86,6 +87,11 @@ def generate_methods_markdown(project_dir: Path, style: str = "full") -> Methods
                     vv = _as_str(v).strip()
                     if kk and vv:
                         versions.setdefault(kk, vv)
+        # Fallback for tools executed from run.sh but not persisted in run_info.yaml
+        # (for example Nextflow or bcl-convert).
+        inferred = _infer_versions_from_artifacts(pdir / instance_id)
+        for k, v in inferred.items():
+            versions.setdefault(k, v)
 
         cits = _load_citations(brs_templates_dir, source_id)
         for c in cits:
@@ -205,6 +211,125 @@ def _load_run_info(path: Path) -> dict[str, Any]:
         return {}
     raw = safe_load_yaml(path)
     return raw if isinstance(raw, dict) else {}
+
+
+def _infer_versions_from_artifacts(instance_dir: Path) -> dict[str, str]:
+    out: dict[str, str] = {}
+
+    text_files = [
+        instance_dir / ".nextflow.log",
+        instance_dir / "results" / ".nextflow.log",
+        instance_dir / "nextflow.log",
+        instance_dir / "results" / "nextflow.log",
+    ]
+    for p in text_files:
+        if not p.exists():
+            continue
+        txt = p.read_text(encoding="utf-8", errors="replace")
+        nf = _extract_nextflow_version(txt)
+        if nf:
+            out.setdefault("nextflow", nf)
+        bcl = _extract_bcl_convert_version(txt)
+        if bcl:
+            out.setdefault("bcl-convert", bcl)
+
+    yml_files = [
+        instance_dir / "pipeline_info" / "software_versions.yml",
+        instance_dir / "results" / "pipeline_info" / "software_versions.yml",
+        instance_dir / "results" / "software_versions.yml",
+        instance_dir / "software_versions.yml",
+    ]
+    for p in yml_files:
+        if not p.exists():
+            continue
+        raw = safe_load_yaml(p)
+        if not isinstance(raw, (dict, list)):
+            continue
+        ymap = _extract_versions_from_yaml(raw)
+        if "nextflow" in ymap:
+            out.setdefault("nextflow", ymap["nextflow"])
+        if "bcl-convert" in ymap:
+            out.setdefault("bcl-convert", ymap["bcl-convert"])
+        flat = _flatten_strings(raw)
+        for s in flat:
+            nf = _extract_nextflow_version(s)
+            if nf:
+                out.setdefault("nextflow", nf)
+            bcl = _extract_bcl_convert_version(s)
+            if bcl:
+                out.setdefault("bcl-convert", bcl)
+
+    return out
+
+
+def _extract_nextflow_version(text: str) -> str:
+    patterns = [
+        r"(?i)nextflow(?:\s+version|\s*:\s*version)?\s*v?([0-9]+(?:\.[0-9]+){1,3}(?:[-+._a-zA-Z0-9]*)?)",
+        r"(?i)\bversion\s+([0-9]+(?:\.[0-9]+){1,3}(?:[-+._a-zA-Z0-9]*)?)",
+    ]
+    for pat in patterns:
+        m = re.search(pat, text)
+        if m:
+            return m.group(1)
+    return ""
+
+
+def _extract_bcl_convert_version(text: str) -> str:
+    patterns = [
+        r"(?i)bcl[- ]?convert(?:\s+version|\s*[:=])\s*v?([0-9]+(?:\.[0-9]+){1,3}(?:[-+._a-zA-Z0-9]*)?)",
+        r"(?i)bcl[- ]?convert[^0-9]*v?([0-9]+(?:\.[0-9]+){1,3}(?:[-+._a-zA-Z0-9]*)?)",
+    ]
+    for pat in patterns:
+        m = re.search(pat, text)
+        if m:
+            return m.group(1)
+    return ""
+
+
+def _flatten_strings(v: Any) -> list[str]:
+    out: list[str] = []
+    if isinstance(v, dict):
+        for k, vv in v.items():
+            out.append(str(k))
+            out.extend(_flatten_strings(vv))
+    elif isinstance(v, list):
+        for it in v:
+            out.extend(_flatten_strings(it))
+    elif v is not None:
+        out.append(str(v))
+    return out
+
+
+def _extract_versions_from_yaml(v: Any) -> dict[str, str]:
+    out: dict[str, str] = {}
+    if isinstance(v, dict):
+        for k, vv in v.items():
+            ks = str(k).strip().lower()
+            if "nextflow" in ks:
+                ver = _extract_version_scalar(vv)
+                if ver:
+                    out.setdefault("nextflow", ver)
+            if "bcl-convert" in ks or "bcl_convert" in ks or "bclconvert" in ks:
+                ver = _extract_version_scalar(vv)
+                if ver:
+                    out.setdefault("bcl-convert", ver)
+            child = _extract_versions_from_yaml(vv)
+            for ck, cv in child.items():
+                out.setdefault(ck, cv)
+    elif isinstance(v, list):
+        for it in v:
+            child = _extract_versions_from_yaml(it)
+            for ck, cv in child.items():
+                out.setdefault(ck, cv)
+    return out
+
+
+def _extract_version_scalar(v: Any) -> str:
+    if isinstance(v, (str, int, float)):
+        s = str(v).strip()
+        if re.match(r"^[0-9]+(?:\.[0-9]+){1,3}(?:[-+._a-zA-Z0-9]*)?$", s):
+            return s
+    return ""
 
 
 def _as_str(v: Any) -> str:
