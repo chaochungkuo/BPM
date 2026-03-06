@@ -154,7 +154,7 @@ def _chat_openai_family(cfg: AgentConfig, messages: list[dict[str, str]]) -> Cha
         url = f"{base}/openai/deployments/{cfg.model}/chat/completions?api-version=2024-06-01"
         payload = {
             "messages": messages,
-            "temperature": cfg.temperature,
+            **_temperature_field(cfg),
             **_completion_tokens_field(cfg),
         }
     else:
@@ -162,7 +162,7 @@ def _chat_openai_family(cfg: AgentConfig, messages: list[dict[str, str]]) -> Cha
         payload = {
             "model": cfg.model,
             "messages": messages,
-            "temperature": cfg.temperature,
+            **_temperature_field(cfg),
             **_completion_tokens_field(cfg),
         }
 
@@ -174,6 +174,9 @@ def _chat_openai_family(cfg: AgentConfig, messages: list[dict[str, str]]) -> Cha
         if "max_tokens" in msg and "max_completion_tokens" in msg and "max_tokens" in payload:
             payload.pop("max_tokens", None)
             payload["max_completion_tokens"] = cfg.max_tokens
+            raw = _post_json(url=url, headers=headers, payload=payload, timeout=cfg.timeout_seconds)
+        elif "temperature" in msg and "default (1)" in msg and "temperature" in payload:
+            payload.pop("temperature", None)
             raw = _post_json(url=url, headers=headers, payload=payload, timeout=cfg.timeout_seconds)
         else:
             raise
@@ -247,6 +250,14 @@ def _completion_tokens_field(cfg: AgentConfig) -> dict[str, int]:
     if model.startswith("gpt-5"):
         return {"max_completion_tokens": cfg.max_tokens}
     return {"max_tokens": cfg.max_tokens}
+
+
+def _temperature_field(cfg: AgentConfig) -> dict[str, float]:
+    # OpenAI gpt-5 family may enforce provider default temperature.
+    model = (cfg.model or "").strip().lower()
+    if model.startswith("gpt-5"):
+        return {}
+    return {"temperature": cfg.temperature}
 
 def _post_json(url: str, headers: dict[str, str], payload: dict, timeout: int) -> str:
     data = json.dumps(payload).encode("utf-8")

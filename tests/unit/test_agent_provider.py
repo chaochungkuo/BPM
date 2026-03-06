@@ -27,3 +27,14 @@ def test_completion_tokens_field_non_gpt5_uses_max_tokens():
     field = agent_provider._completion_tokens_field(cfg)
     assert field == {"max_tokens": 123}
 
+
+def test_temperature_field_gpt5_omits_temperature():
+    cfg = _cfg("gpt-5-nano")
+    field = agent_provider._temperature_field(cfg)
+    assert field == {}
+
+
+def test_temperature_field_non_gpt5_includes_temperature():
+    cfg = _cfg("gpt-4.1")
+    field = agent_provider._temperature_field(cfg)
+    assert field == {"temperature": 0.1}
