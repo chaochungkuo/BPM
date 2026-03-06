@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import json
 from pathlib import Path
+import re
 import typer
 from rich.console import Console
 from rich.panel import Panel
@@ -14,6 +15,8 @@ from bpm.core import agent_recommend
 from bpm.core import agent_session
 from bpm.core import agent_template_index
 from bpm.core import agent_methods
+from bpm.core import brs_loader
+from bpm.core.descriptor_loader import load as load_desc
 from bpm.core.agent_config import AgentConfig
 
 app = typer.Typer(
@@ -57,12 +60,72 @@ def _build_runtime_hint(user_text: str) -> str:
     lines = ["Top template matches for current user turn:"]
     for r in recs:
         lines.append(f"- {r.template_id}: {r.reason} [source: {r.source_path}]")
+    for r in recs[:2]:
+        details = _template_detail_hint(r.template_id)
+        if details:
+            lines.append(details)
     try:
         p = agent_recommend.build_command_proposal(recs[0].template_id)
         lines.append(f"Suggested starter command: {p.command}")
     except Exception:
         pass
     return "\n".join(lines)
+
+
+def _template_detail_hint(template_id: str) -> str:
+    try:
+        desc = load_desc(template_id)
+    except Exception:
+        return ""
+
+    important = []
+    pattern = re.compile(r"(genome|assembly|quant|spike|umi|protocol|stranded|align|salmon|star)", re.I)
+    for pname, pspec in (desc.params or {}).items():
+        if not pattern.search(str(pname)):
+            continue
+        default = getattr(pspec, "default", None)
+        ptype = getattr(pspec, "type", "str")
+        req = bool(getattr(pspec, "required", False))
+        important.append(f"{pname}<{ptype}> default={default!r} required={str(req).lower()}")
+    important = important[:8]
+
+    run_hints = _extract_run_script_hints(template_id, desc.run_entry or "run.sh")
+    out: list[str] = [f"Template detail [{template_id}]:"]
+    if important:
+        out.append("- Important params: " + "; ".join(important))
+    if run_hints:
+        out.append("- Run hints: " + " | ".join(run_hints[:6]))
+    return "\n".join(out)
+
+
+def _extract_run_script_hints(template_id: str, run_entry: str) -> list[str]:
+    try:
+        tdir = brs_loader.get_paths().templates_dir / template_id
+    except Exception:
+        return []
+
+    candidates = [
+        tdir / run_entry,
+        tdir / f"{run_entry}.j2",
+        tdir / "run.sh",
+        tdir / "run.sh.j2",
+    ]
+    script = next((p for p in candidates if p.exists()), None)
+    if script is None:
+        return []
+
+    raw = script.read_text(encoding="utf-8", errors="replace")
+    hints: list[str] = []
+    pattern = re.compile(r"(genome|assembly|quant|spike|umi|protocol|stranded|align|salmon|star)", re.I)
+    for ln in raw.splitlines():
+        s = ln.strip()
+        if not s or s.startswith("#"):
+            continue
+        if not pattern.search(s):
+            continue
+        s = re.sub(r"\s+", " ", s)
+        hints.append(s[:180])
+    return hints[:12]
 
 def _trim_history(messages: list[dict[str, str]], max_messages: int = 20) -> list[dict[str, str]]:
     if len(messages) <= max_messages:
