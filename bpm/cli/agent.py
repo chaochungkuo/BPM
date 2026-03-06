@@ -20,6 +20,7 @@ from bpm.core import agent_methods
 from bpm.core import brs_loader
 from bpm.core.descriptor_loader import load as load_desc
 from bpm.core.agent_config import AgentConfig
+from bpm.io.yamlio import safe_load_yaml
 
 app = typer.Typer(
     no_args_is_help=True,
@@ -61,19 +62,26 @@ def _build_system_prompt() -> str:
         "2) If out of scope, refuse briefly and redirect to BPM/BRS.\n"
         "3) Prefer concrete commands and parameter guidance.\n"
         "4) Do not claim actions were executed unless explicitly reported.\n"
+        "5) Do not invent non-existent BPM flags or config files (for example, avoid `--config` unless explicitly supported).\n"
     )
 
 def _build_runtime_hint(user_text: str) -> str:
     recs = agent_recommend.recommend(goal=user_text, top_k=3)
     if not recs:
         return "No matching template recommendations."
-    lines = ["Top template matches for current user turn:"]
+    lines = [
+        "Top template matches for current user turn:",
+        "Command policy: prefer `bpm template render <template_id> [params...]` and `bpm template run <template_id> [--dir <project>]`. Do not assume external config file flags.",
+    ]
     for r in recs:
         lines.append(f"- {r.template_id}: {r.reason} [source: {r.source_path}]")
     for r in recs[:2]:
         details = _template_detail_hint(r.template_id)
         if details:
             lines.append(details)
+        dossier = _template_dossier_hint(r.template_id)
+        if dossier:
+            lines.append(dossier)
     try:
         p = agent_recommend.build_command_proposal(recs[0].template_id)
         lines.append(f"Suggested starter command: {p.command}")
@@ -106,6 +114,97 @@ def _template_detail_hint(template_id: str) -> str:
     if run_hints:
         out.append("- Run hints: " + " | ".join(run_hints[:6]))
     return "\n".join(out)
+
+
+def _template_dossier_hint(template_id: str) -> str:
+    try:
+        tdir = brs_loader.get_paths().templates_dir / template_id
+    except Exception:
+        return ""
+
+    out: list[str] = [f"Template dossier [{template_id}]:"]
+    p_cfg = _first_existing(tdir / "template_config.yaml", tdir / "template.config.yaml")
+    if p_cfg and p_cfg.exists():
+        try:
+            cfg = safe_load_yaml(p_cfg)
+            params = cfg.get("params") if isinstance(cfg, dict) else {}
+            if isinstance(params, dict):
+                if params:
+                    pnames = ", ".join(sorted(str(k) for k in list(params.keys())[:12]))
+                    out.append(f"- Declared params: {pnames}")
+                else:
+                    out.append("- Declared params: none (template_config has empty params map).")
+        except Exception:
+            pass
+
+    methods = _load_first_paragraph(tdir / "METHODS.md")
+    if methods:
+        out.append(f"- METHODS.md summary: {methods}")
+
+    cite_ids = _load_citation_ids(tdir / "citations.yaml")
+    if cite_ids:
+        out.append(f"- citations.yaml ids: {', '.join(cite_ids[:12])}")
+
+    bib_ids = _load_bib_ids(tdir / "references.bib")
+    if bib_ids:
+        out.append(f"- references.bib keys: {', '.join(bib_ids[:12])}")
+
+    readme = _load_first_paragraph(tdir / "README.md")
+    if readme:
+        out.append(f"- README summary: {readme}")
+
+    if len(out) == 1:
+        return ""
+    return "\n".join(out)
+
+
+def _first_existing(*paths: Path) -> Path | None:
+    for p in paths:
+        if p.exists():
+            return p
+    return None
+
+
+def _load_first_paragraph(path: Path, max_len: int = 220) -> str:
+    if not path.exists():
+        return ""
+    txt = path.read_text(encoding="utf-8", errors="replace")
+    txt = re.sub(r"<!--.*?-->", "", txt, flags=re.DOTALL)
+    paras = [x.strip() for x in txt.split("\n\n") if x.strip()]
+    if not paras:
+        return ""
+    p = re.sub(r"\s+", " ", paras[0])
+    return p[:max_len]
+
+
+def _load_citation_ids(path: Path) -> list[str]:
+    if not path.exists():
+        return []
+    try:
+        raw = safe_load_yaml(path)
+    except Exception:
+        return []
+
+    items = []
+    if isinstance(raw, dict):
+        items = raw.get("citations") or []
+    elif isinstance(raw, list):
+        items = raw
+
+    out: list[str] = []
+    for it in items:
+        if isinstance(it, dict):
+            cid = it.get("id")
+            if cid:
+                out.append(str(cid))
+    return out
+
+
+def _load_bib_ids(path: Path) -> list[str]:
+    if not path.exists():
+        return []
+    txt = path.read_text(encoding="utf-8", errors="replace")
+    return re.findall(r"@\w+\{([^,\s]+)", txt)
 
 
 def _extract_run_script_hints(template_id: str, run_entry: str) -> list[str]:

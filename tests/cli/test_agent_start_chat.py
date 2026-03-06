@@ -39,6 +39,22 @@ def _mk_min_brs(tmpdir):
     (src / "templates" / "illumina_methylation_process" / "run.sh.j2").write_text(
         "bpm template render illumina_methylation_process --genome-assembly hg38 --quantification salmon --umi true\n"
     )
+    (src / "templates" / "illumina_methylation_process" / "METHODS.md").write_text(
+        "Illumina methylation preprocessing used noob normalization.\n"
+    )
+    (src / "templates" / "illumina_methylation_process" / "citations.yaml").write_text(
+        "citations:\n"
+        "  - id: minfi\n"
+        "    text: minfi package paper\n"
+    )
+    (src / "templates" / "illumina_methylation_process" / "references.bib").write_text(
+        "@article{minfi,\n"
+        "  title={minfi}\n"
+        "}\n"
+    )
+    (src / "templates" / "illumina_methylation_process" / "README.md").write_text(
+        "# illumina_methylation_process\n\nProcess Illumina methylation arrays.\n"
+    )
     return src
 
 
@@ -138,7 +154,12 @@ def test_agent_start_chat_includes_template_and_run_hints(tmpdir, monkeypatch):
     runtime_hints = [m["content"] for m in captured["messages"] if m.get("role") == "system"]
     combined = "\n".join(runtime_hints)
     assert "Template detail [illumina_methylation_process]:" in combined
+    assert "Command policy:" in combined
+    assert "Template dossier [illumina_methylation_process]:" in combined
     assert "genome_assembly<str>" in combined
     assert "quant_method<str>" in combined
     assert "use_umi<bool>" in combined
+    assert "citations.yaml ids: minfi" in combined
+    assert "references.bib keys: minfi" in combined
+    assert "METHODS.md summary:" in combined
     assert "--quantification salmon --umi true" in combined
