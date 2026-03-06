@@ -9,6 +9,7 @@ from rich.console import Console
 from rich.markdown import Markdown
 from rich.panel import Panel
 from rich.text import Text
+from rich.theme import Theme
 
 from bpm.core import agent_config
 from bpm.core import agent_provider
@@ -28,7 +29,15 @@ app = typer.Typer(
         "Configure and run a BPM/BRS-scoped assistant for template discovery and guidance."
     ),
 )
-_console = Console()
+_console = Console(
+    theme=Theme(
+        {
+            "markdown.strong": "bold bright_yellow",
+            "markdown.code": "bold cyan",
+            "markdown.code_block": "cyan",
+        }
+    )
+)
 
 
 def _render_template_context() -> str:
