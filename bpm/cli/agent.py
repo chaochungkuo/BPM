@@ -6,6 +6,7 @@ from pathlib import Path
 import re
 import typer
 from rich.console import Console
+from rich.markdown import Markdown
 from rich.panel import Panel
 from rich.text import Text
 
@@ -151,7 +152,8 @@ def _print_chat_header(provider: str, model: str) -> None:
 
 
 def _print_agent_message(reply: str) -> None:
-    _console.print(Panel(reply, title="agent", border_style="green"))
+    rendered = Markdown(reply, code_theme="monokai", hyperlinks=False)
+    _console.print(Panel(rendered, title="agent", border_style="green"))
 
 
 def _print_user_message(text: str) -> None:
