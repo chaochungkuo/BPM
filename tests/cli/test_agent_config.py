@@ -15,3 +15,4 @@ def test_agent_config_non_interactive_writes_file(tmpdir, monkeypatch):
     content = cfg_path.read_text()
     assert 'provider = "openai"' in content
     assert 'base_url = "https://api.openai.com/v1"' in content
+    assert 'model = "gpt-5-nano"' in content

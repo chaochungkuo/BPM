@@ -28,7 +28,7 @@ class AgentConfig:
 
 
 _DEFAULTS = {
-    "openai": ("https://api.openai.com/v1", "OPENAI_API_KEY", "gpt-4.1"),
+    "openai": ("https://api.openai.com/v1", "OPENAI_API_KEY", "gpt-5-nano"),
     "anthropic": ("https://api.anthropic.com", "ANTHROPIC_API_KEY", "claude-3-5-sonnet-latest"),
     "azure_openai": ("https://YOUR-RESOURCE.openai.azure.com", "AZURE_OPENAI_API_KEY", "gpt-4.1"),
     "openai_compatible": ("http://127.0.0.1:11434/v1", "", "llama3.1:8b"),

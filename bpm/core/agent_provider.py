@@ -155,7 +155,7 @@ def _chat_openai_family(cfg: AgentConfig, messages: list[dict[str, str]]) -> Cha
         payload = {
             "messages": messages,
             "temperature": cfg.temperature,
-            "max_tokens": cfg.max_tokens,
+            **_completion_tokens_field(cfg),
         }
     else:
         url = f"{base}/chat/completions"
@@ -163,10 +163,20 @@ def _chat_openai_family(cfg: AgentConfig, messages: list[dict[str, str]]) -> Cha
             "model": cfg.model,
             "messages": messages,
             "temperature": cfg.temperature,
-            "max_tokens": cfg.max_tokens,
+            **_completion_tokens_field(cfg),
         }
 
-    raw = _post_json(url=url, headers=headers, payload=payload, timeout=cfg.timeout_seconds)
+    try:
+        raw = _post_json(url=url, headers=headers, payload=payload, timeout=cfg.timeout_seconds)
+    except RuntimeError as e:
+        # Compatibility fallback for endpoints requiring max_completion_tokens.
+        msg = str(e)
+        if "max_tokens" in msg and "max_completion_tokens" in msg and "max_tokens" in payload:
+            payload.pop("max_tokens", None)
+            payload["max_completion_tokens"] = cfg.max_tokens
+            raw = _post_json(url=url, headers=headers, payload=payload, timeout=cfg.timeout_seconds)
+        else:
+            raise
     try:
         data = json.loads(raw)
         choices = data.get("choices") or []
@@ -229,6 +239,14 @@ def _chat_anthropic(cfg: AgentConfig, messages: list[dict[str, str]]) -> ChatRes
         return ChatResult(text=reply)
     except Exception as e:
         raise RuntimeError(f"Failed to parse anthropic response: {e}")
+
+
+def _completion_tokens_field(cfg: AgentConfig) -> dict[str, int]:
+    # OpenAI gpt-5 family expects max_completion_tokens (not max_tokens).
+    model = (cfg.model or "").strip().lower()
+    if model.startswith("gpt-5"):
+        return {"max_completion_tokens": cfg.max_tokens}
+    return {"max_tokens": cfg.max_tokens}
 
 def _post_json(url: str, headers: dict[str, str], payload: dict, timeout: int) -> str:
     data = json.dumps(payload).encode("utf-8")
