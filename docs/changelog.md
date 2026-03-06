@@ -17,3 +17,5 @@ High-level, user-facing changes by release.
   - Added `bpm agent methods` command docs for generating publication-oriented methods drafts from `project.yaml` + BRS metadata (`METHODS.md`, `citations.yaml`, `run_info.yaml`).
   - Updated CLI overview/index to include `bpm agent`.
   - Updated installation docs for pixi dev tasks and version sync/check workflow.
+  - Agent chat context now includes a per-template dossier from active BRS files (`template_config.yaml`, `run.sh(.j2)`, `README.md`, `METHODS.md`, `citations.yaml`, `references.bib`) for top recommendations.
+  - OpenAI `gpt-5*` compatibility improved for chat payloads (`max_completion_tokens`, omit unsupported non-default `temperature`).

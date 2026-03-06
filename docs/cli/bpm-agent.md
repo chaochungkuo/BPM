@@ -47,6 +47,19 @@ Additional intent hints (used by recommendation flow):
 - `/recommend <query>` — quick recommendation for a query.
 - `exit` / `quit` — end the session.
 
+### Template Dossier Context (chat mode)
+For top recommendations in each turn, the agent enriches LLM context from template files in the active BRS.
+
+Primary sources:
+- `template_config.yaml` (or legacy `template.config.yaml`) for declared parameters, defaults, and run entry.
+- `run.sh` / `run.sh.j2` for runtime/protocol hints (actual command behavior).
+- `README.md` for usage/output notes.
+- `METHODS.md` for publication-style method narrative.
+- `citations.yaml` for citation ids/entries.
+- `references.bib` for bibliography keys.
+
+This is generic behavior for all templates, not hardcoded to one template.
+
 ## history
 ```
 bpm agent history [--limit 10] [--kind all|start|doctor] [--format table|json]
@@ -62,6 +75,7 @@ bpm agent methods [--dir .] [--style full|concise] [--out methods.md]
 - Merges optional per-template metadata from active BRS:
   - `METHODS.md` (method narrative)
   - `citations.yaml` (citations list)
+  - `references.bib` (bibliography ids for cross-checking references)
   - `results/run_info.yaml` (software/package versions from rendered project folders)
 - Prints markdown to stdout by default, or writes to `--out`.
 
