@@ -1,5 +1,6 @@
 from __future__ import annotations
 import re
+import shutil
 from pathlib import Path
 import socket
 from typing import Any, Dict, Iterable, List, Optional
@@ -253,3 +254,116 @@ def adopt(
 
     save_project(project_dir, project)
     return project_dir
+
+
+# --------------------------- template removal ---------------------------
+
+def _iter_leaf_values(value: Any, key_path: str = ""):
+    if isinstance(value, dict):
+        for k, v in value.items():
+            next_path = f"{key_path}.{k}" if key_path else str(k)
+            yield from _iter_leaf_values(v, next_path)
+        return
+    if isinstance(value, list):
+        for i, v in enumerate(value):
+            next_path = f"{key_path}[{i}]" if key_path else f"[{i}]"
+            yield from _iter_leaf_values(v, next_path)
+        return
+    yield key_path, value
+
+
+def _string_mentions_template(value: str, template_id: str, rendered_dir: Path, project_dir: Path) -> bool:
+    s = str(value).strip()
+    if not s:
+        return False
+    normalized = s.replace("\\", "/")
+    rendered_posix = rendered_dir.resolve().as_posix()
+    project_posix = project_dir.resolve().as_posix()
+    rel_posix = rendered_dir.relative_to(project_dir).as_posix()
+    patterns = (
+        template_id,
+        rel_posix,
+        f"{rel_posix}/",
+        f"../{template_id}",
+        f"../{template_id}/",
+        rendered_posix,
+        f"{rendered_posix}/",
+        f"/{template_id}/",
+        f"{template_id}/",
+    )
+    return any(p and p in normalized for p in patterns)
+
+
+def _find_template_references(project: Dict[str, Any], template_id: str, rendered_dir: Path, project_dir: Path) -> List[Dict[str, str]]:
+    refs: List[Dict[str, str]] = []
+    for entry in project.get("templates") or []:
+        src_id = str(entry.get("id") or "")
+        if src_id == template_id:
+            continue
+        for section in ("params", "published"):
+            data = entry.get(section) or {}
+            for key_path, value in _iter_leaf_values(data):
+                if isinstance(value, str) and _string_mentions_template(value, template_id, rendered_dir, project_dir):
+                    refs.append(
+                        {
+                            "template_id": src_id,
+                            "section": section,
+                            "key_path": key_path,
+                            "value": value,
+                        }
+                    )
+    return refs
+
+
+def remove_template(
+    project_dir: Path,
+    template_id: str,
+    *,
+    force: bool = False,
+    dry_run: bool = False,
+) -> Dict[str, Any]:
+    """
+    Remove a rendered template instance from a project.
+
+    This removes the matching entry from project.yaml and deletes the canonical
+    rendered directory `<project_dir>/<template_id>` if present.
+    """
+    project = load_project(project_dir)
+    templates = project.get("templates") or []
+    entry_idx = next((i for i, t in enumerate(templates) if t.get("id") == template_id), None)
+    if entry_idx is None:
+        raise ValueError(f"Template '{template_id}' not found in project.yaml")
+
+    rendered_dir = (project_dir / template_id).resolve()
+    refs = _find_template_references(project, template_id, rendered_dir, project_dir.resolve())
+    if refs and not force:
+        rendered_rel = rendered_dir.relative_to(project_dir.resolve()).as_posix()
+        details = "; ".join(
+            f"{r['template_id']}:{r['section']}.{r['key_path']}={r['value']}"
+            for r in refs[:5]
+        )
+        more = "" if len(refs) <= 5 else f" (+{len(refs) - 5} more)"
+        raise ValueError(
+            f"Template '{template_id}' is still referenced by other templates: {details}{more}. "
+            f"Use --force to remove it anyway. Canonical rendered path: {rendered_rel}"
+        )
+
+    result = {
+        "template_id": template_id,
+        "entry_removed": True,
+        "entry_exists": True,
+        "rendered_dir": rendered_dir,
+        "rendered_dir_exists": rendered_dir.exists(),
+        "references": refs,
+        "dry_run": dry_run,
+    }
+
+    if dry_run:
+        return result
+
+    del templates[entry_idx]
+    project["templates"] = templates
+    save_project(project_dir, project)
+    if rendered_dir.exists():
+        shutil.rmtree(rendered_dir)
+    return result

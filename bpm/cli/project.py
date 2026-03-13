@@ -310,3 +310,46 @@ def status(
     # Unknown format → treat as plain
     s = svc.status_table(project_dir.resolve())
     typer.echo(s)
+
+
+@app.command("rm-template")
+@app.command("remove-template", hidden=True)
+def rm_template(
+    template_id: str = typer.Argument(..., help="Template id / alias stored in project.yaml"),
+    project_dir: Path = typer.Option(Path("."), "--dir", help="Project directory (contains project.yaml)"),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Show what would be removed without changing files"),
+    force: bool = typer.Option(False, "--force", help="Remove even if other template params/published values still reference it"),
+):
+    """
+    Remove a template entry from project.yaml and delete its canonical rendered folder.
+    """
+    try:
+        result = svc.remove_template(project_dir.resolve(), template_id, force=force, dry_run=dry_run)
+    except FileNotFoundError as e:
+        typer.secho(f"Error: {e}", err=True, fg=typer.colors.RED)
+        raise typer.Exit(code=1)
+    except Exception as e:
+        typer.secho(f"Error: {e}", err=True, fg=typer.colors.RED)
+        raise typer.Exit(code=1)
+
+    rendered_dir = Path(result["rendered_dir"])
+    refs = result.get("references") or []
+
+    if dry_run:
+        typer.echo(f"template: {template_id}")
+        typer.echo("project_yaml: would remove entry")
+        typer.echo(f"rendered_dir: {'would delete' if result['rendered_dir_exists'] else 'already absent'} {rendered_dir}")
+        typer.echo(f"references: {len(refs)}")
+        for ref in refs[:10]:
+            typer.echo(f"- {ref['template_id']} {ref['section']}.{ref['key_path']} -> {ref['value']}")
+        if len(refs) > 10:
+            typer.echo(f"... {len(refs) - 10} more")
+        return
+
+    typer.secho(f"[ok] Removed template '{template_id}' from project.yaml.", fg=typer.colors.GREEN)
+    if result["rendered_dir_exists"]:
+        typer.secho(f"[ok] Deleted rendered directory: {rendered_dir}", fg=typer.colors.GREEN)
+    else:
+        typer.secho(f"[ok] Canonical rendered directory already absent: {rendered_dir}", fg=typer.colors.GREEN)
+    if refs and force:
+        typer.secho(f"Warning: removed despite {len(refs)} detected reference(s).", err=True, fg=typer.colors.YELLOW)
