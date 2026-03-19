@@ -130,3 +130,38 @@ def test_template_render_hostifies_path_params(tmpdir, monkeypatch):
     saved = entry["params"]["datadir"]
     expected = f"nextgen:{data_dir.resolve().as_posix()}"
     assert saved == expected
+
+
+def test_template_render_auto_detects_project_root_from_nested_cwd(tmpdir, monkeypatch):
+    runner = CliRunner()
+    base = Path(tmpdir)
+    monkeypatch.setenv("BPM_CACHE", str(base / "cache3"))
+
+    src = _mk_brs_with_template(base)
+    reg.add(str(src), activate=True)
+
+    proj_name = "250901_AutoRoot_UKA"
+    project_dir = base / proj_name
+
+    r = runner.invoke(root_app, ["project", "init", proj_name, "--outdir", str(base), "--host", "nextgen"])
+    assert r.exit_code == 0, r.output
+
+    nested = project_dir / "nested" / "work"
+    nested.mkdir(parents=True)
+    monkeypatch.chdir(nested)
+
+    r2 = runner.invoke(root_app, ["template", "render", "hello", "--param", "name=Alice"])
+    assert r2.exit_code == 0, r2.output
+
+    out = project_dir / proj_name / "hello" / "out.txt"
+    assert out.exists()
+    assert out.read_text().strip() == "Hello Alice"
+
+
+def test_template_render_help_hides_dir_option(tmpdir, monkeypatch):
+    runner = CliRunner()
+    monkeypatch.setenv("BPM_CACHE", str(Path(tmpdir) / "cache4"))
+
+    r = runner.invoke(root_app, ["template", "render", "--help"])
+    assert r.exit_code == 0, r.output
+    assert "--dir" not in r.output

@@ -5,6 +5,7 @@ import typer
 from bpm.core import template_service as svc
 from bpm.core import brs_loader
 from bpm.core.descriptor_loader import load as load_desc
+from bpm.core.project_io import find_project_dir, project_file_path
 
 app = typer.Typer(
     no_args_is_help=True,
@@ -27,6 +28,21 @@ def _complete_template_ids(ctx, incomplete: str):
     return [i for i in ids if i.startswith(incomplete)]
 
 
+def _resolve_project_dir(project_dir: Path | None) -> tuple[Path, bool]:
+    """
+    Return the effective project root for template commands.
+
+    If ``--dir`` is provided, use it verbatim. Otherwise, auto-detect the
+    nearest enclosing project from the current working directory.
+    """
+    if project_dir is not None:
+        return project_dir.resolve(), True
+    detected = find_project_dir(Path.cwd())
+    if detected is not None:
+        return detected, False
+    return Path(".").resolve(), False
+
+
 @app.command(
     "render",
     context_settings={
@@ -37,13 +53,13 @@ def _complete_template_ids(ctx, incomplete: str):
 def render(
     ctx: typer.Context,
     template_id: str = typer.Argument(..., help="Template id within the active BRS", autocompletion=_complete_template_ids),
-    project_dir: Path = typer.Option(Path("."), "--dir", help="Project directory (contains project.yaml)"),
+    project_dir: Path | None = typer.Option(None, "--dir", help="Project directory (contains project.yaml)", hidden=True),
     alias: str = typer.Option(None, "--alias", help="Instance name to render under (stored as template id in project.yaml)"),
     dry: bool = typer.Option(False, "--dry", help="Dry-run: only show plan, no changes"),
     param: list[str] = typer.Option(None, "--param", help="KEY=VALUE (can repeat)"),
     adhoc: bool = typer.Option(False, "--adhoc", help="Force ad-hoc mode even without --out (requires resolver)"),
     out: Path = typer.Option(None, "--out", help="Ad-hoc output directory (do not touch project.yaml)"),
-    allow_outside_cwd: bool = typer.Option(False, "--allow-outside-cwd/--no-allow-outside-cwd", help="Bypass cwd==--dir safety check (advanced)"),
+    allow_outside_cwd: bool = typer.Option(False, "--allow-outside-cwd/--no-allow-outside-cwd", help="Bypass the explicit project-path safety warning (advanced)"),
 ):
     """
     Render a template into the project (or to --out in ad‑hoc mode).
@@ -54,9 +70,10 @@ def render(
     """
     # Safety: in project mode, encourage running from the project directory to avoid confusion
     adhoc_mode = bool(out or adhoc)
+    effective_project_dir, explicit_project_dir = _resolve_project_dir(project_dir)
 
     if not adhoc_mode:
-        if project_dir.resolve() != Path(".").resolve():
+        if explicit_project_dir and effective_project_dir != Path(".").resolve():
             if not allow_outside_cwd:
                 # Backward-compatible: warn but continue to support --dir workflows and tests
                 typer.secho(
@@ -166,7 +183,7 @@ def render(
         # Emit non-fatal warnings about missing tools up-front
         _warn_missing_tools(template_id)
         plan = svc.render(
-            project_dir.resolve(),
+            effective_project_dir,
             template_id,
             alias=alias,
             params_kv=merged_params,
@@ -403,25 +420,25 @@ def readme_cmd(
 @app.command("run")
 def run(
     template_id: str = typer.Argument(..., help="Template id within the active BRS", autocompletion=_complete_template_ids),
-    project_dir: Path = typer.Option(Path("."), "--dir", help="Project directory (contains project.yaml)"),
+    project_dir: Path | None = typer.Option(None, "--dir", help="Project directory (contains project.yaml)", hidden=True),
     out: Path = typer.Option(None, "--out", help="Run in ad-hoc mode from this directory (reads bpm.meta.yaml)"),
-    allow_outside_cwd: bool = typer.Option(False, "--allow-outside-cwd/--no-allow-outside-cwd", help="Bypass cwd==--dir safety check (advanced)"),
+    allow_outside_cwd: bool = typer.Option(False, "--allow-outside-cwd/--no-allow-outside-cwd", help="Bypass the explicit project-path safety warning (advanced)"),
 ):
     """
     Execute the template's run entry (e.g., run.sh) with pre/post hooks, then publish.
     """
     # Decide mode: project vs ad-hoc
+    effective_project_dir, explicit_project_dir = _resolve_project_dir(project_dir)
     adhoc_dir: Path | None = None
     if out:
         adhoc_dir = out.resolve()
     else:
         # Auto-detect ad-hoc if no project.yaml but bpm.meta.yaml exists in CWD
-        from bpm.core.project_io import project_file_path
-        if not project_file_path(project_dir.resolve()).exists() and (Path.cwd() / "bpm.meta.yaml").exists():
+        if not project_file_path(effective_project_dir).exists() and (Path.cwd() / "bpm.meta.yaml").exists():
             adhoc_dir = Path.cwd()
 
     # Safety warning for project mode
-    if not adhoc_dir and project_dir.resolve() != Path(".").resolve():
+    if not adhoc_dir and explicit_project_dir and effective_project_dir != Path(".").resolve():
         if not allow_outside_cwd:
             typer.secho(
                 "Warning: running from outside the project directory; consider 'cd' into it or pass --allow-outside-cwd to silence this warning.",
@@ -430,8 +447,8 @@ def run(
             )
 
     try:
-        svc.run(project_dir.resolve(), template_id, adhoc_out=adhoc_dir)
-        pub = svc.publish(project_dir.resolve(), template_id, adhoc_out=adhoc_dir)
+        svc.run(effective_project_dir, template_id, adhoc_out=adhoc_dir)
+        pub = svc.publish(effective_project_dir, template_id, adhoc_out=adhoc_dir)
     except Exception as e:
         typer.secho(f"Error: {e}", err=True, fg=typer.colors.RED)
         raise typer.Exit(code=1)
@@ -443,24 +460,24 @@ def run(
 @app.command("publish")
 def publish(
     template_id: str = typer.Argument(..., help="Template id within the active BRS", autocompletion=_complete_template_ids),
-    project_dir: Path = typer.Option(Path("."), "--dir", help="Project directory (contains project.yaml)"),
+    project_dir: Path | None = typer.Option(None, "--dir", help="Project directory (contains project.yaml)", hidden=True),
     out: Path = typer.Option(None, "--out", help="Publish in ad-hoc mode from this directory (reads bpm.meta.yaml)"),
-    allow_outside_cwd: bool = typer.Option(False, "--allow-outside-cwd/--no-allow-outside-cwd", help="Bypass cwd==--dir safety check (advanced)"),
+    allow_outside_cwd: bool = typer.Option(False, "--allow-outside-cwd/--no-allow-outside-cwd", help="Bypass the explicit project-path safety warning (advanced)"),
 ):
     """
     Run all publish resolvers defined by the template and persist results into project.yaml.
     """
     # Decide mode: project vs ad-hoc
+    effective_project_dir, explicit_project_dir = _resolve_project_dir(project_dir)
     adhoc_dir: Path | None = None
     if out:
         adhoc_dir = out.resolve()
     else:
-        from bpm.core.project_io import project_file_path
-        if not project_file_path(project_dir.resolve()).exists() and (Path.cwd() / "bpm.meta.yaml").exists():
+        if not project_file_path(effective_project_dir).exists() and (Path.cwd() / "bpm.meta.yaml").exists():
             adhoc_dir = Path.cwd()
 
     # Safety warning for project mode
-    if not adhoc_dir and project_dir.resolve() != Path(".").resolve():
+    if not adhoc_dir and explicit_project_dir and effective_project_dir != Path(".").resolve():
         if not allow_outside_cwd:
             typer.secho(
                 "Warning: running from outside the project directory; consider 'cd' into it or pass --allow-outside-cwd to silence this warning.",
@@ -469,7 +486,7 @@ def publish(
             )
 
     try:
-        pub = svc.publish(project_dir.resolve(), template_id, adhoc_out=adhoc_dir)
+        pub = svc.publish(effective_project_dir, template_id, adhoc_out=adhoc_dir)
     except Exception as e:
         typer.secho(f"Error: {e}", err=True, fg=typer.colors.RED)
         raise typer.Exit(code=1)

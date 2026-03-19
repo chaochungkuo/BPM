@@ -15,6 +15,20 @@ def project_file_path(project_dir: Path) -> Path:
     return project_dir / PROJECT_FILENAME
 
 
+def find_project_dir(start: Path) -> Optional[Path]:
+    """
+    Walk upward from ``start`` and return the nearest directory containing
+    project.yaml, or None if no enclosing project exists.
+    """
+    current = start.resolve()
+    if current.is_file():
+        current = current.parent
+    for candidate in (current, *current.parents):
+        if project_file_path(candidate).exists():
+            return candidate
+    return None
+
+
 def load(project_dir: Path) -> Dict[str, Any]:
     """
     Load an existing project.yaml from a directory.

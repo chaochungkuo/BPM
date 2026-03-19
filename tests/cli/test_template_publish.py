@@ -74,3 +74,31 @@ def test_template_publish_updates_project(tmpdir, monkeypatch):
     data = load_project(tmpdir / name)
     t = [t for t in data["templates"] if t["id"] == "hello"][0]
     assert t["published"]["greeting"] == "Hello hello from 250901_Publish_UKA"
+
+
+def test_template_publish_auto_detects_project_root_from_nested_cwd(tmpdir, monkeypatch):
+    runner = CliRunner()
+    base = Path(tmpdir)
+    monkeypatch.setenv("BPM_CACHE", str(base / "cache_nested"))
+
+    src = _mk_brs_with_publish(base)
+    reg.add(str(src), activate=True)
+
+    name = "250901_PublishAuto_UKA"
+    project_dir = base / name
+    r = runner.invoke(root_app, ["project", "init", name, "--outdir", str(base), "--host", "nextgen"])
+    assert r.exit_code == 0, r.output
+
+    r2 = runner.invoke(root_app, ["template", "render", "hello", "--dir", str(project_dir)])
+    assert r2.exit_code == 0, r2.output
+
+    nested = project_dir / "nested" / "work"
+    nested.mkdir(parents=True)
+    monkeypatch.chdir(nested)
+
+    r3 = runner.invoke(root_app, ["template", "publish", "hello"])
+    assert r3.exit_code == 0, r3.output
+
+    data = load_project(project_dir)
+    t = [t for t in data["templates"] if t["id"] == "hello"][0]
+    assert t["published"]["greeting"] == "Hello hello from 250901_PublishAuto_UKA"
